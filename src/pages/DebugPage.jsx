@@ -1,0 +1,513 @@
+// src/pages/DebugPage.jsx
+// Debug page to test the system
+
+import React, { useState, useEffect } from 'react';
+import userApiService from '../services/userApi';
+
+console.log('🔧 DebugPage.jsx loaded');
+
+const DebugPage = () => {
+  console.log('🔧 DebugPage component rendering');
+  
+  const [status, setStatus] = useState('ready');
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [customUrl, setCustomUrl] = useState('http://192.168.100.48:8000');
+  const [isPageLoaded, setIsPageLoaded] = useState(false);
+  const [adminCreationEnabled, setAdminCreationEnabled] = useState(() => {
+    // Initialize from localStorage, default to true if not set
+    const stored = localStorage.getItem('adminCreationEnabled');
+    return stored === null ? true : stored === 'true';
+  });
+  const [debugRequiresAuth, setDebugRequiresAuth] = useState(() => {
+    // Check if debug page requires authentication
+    return localStorage.getItem('debugRequiresAuth') === 'true';
+  });
+  const [showSecurityWarning, setShowSecurityWarning] = useState(false);
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
+
+  useEffect(() => {
+    console.log('DebugPage loaded');
+    setIsPageLoaded(true);
+    
+    // Check if a user is logged in
+    const currentUser = userApiService.getCurrentUser();
+    setIsUserLoggedIn(currentUser !== null);
+    
+    // Check if we should show security warning
+    const checkAdminExists = async () => {
+      try {
+        const health = await userApiService.healthCheck();
+        if (health.user_system && health.user_system.admin_exists) {
+          setShowSecurityWarning(true);
+        }
+      } catch (err) {
+        console.log('Could not check admin status:', err);
+      }
+    };
+    
+    checkAdminExists();
+  }, []);
+
+  const testAPI = async (url = null) => {
+    const apiUrl = url || customUrl;
+    setStatus('loading');
+    setError(null);
+    
+    try {
+      console.log('Testing API connection to:', apiUrl);
+      
+      // Update the service URL temporarily
+      const originalUrl = userApiService.baseUrl;
+      userApiService.baseUrl = apiUrl;
+      
+      const health = await userApiService.healthCheck();
+      console.log('Health check response:', health);
+      setData(health);
+      setStatus('success');
+      
+      // Restore original URL
+      userApiService.baseUrl = originalUrl;
+      
+    } catch (err) {
+      console.error('API test failed:', err);
+      setError(err.message);
+      setStatus('error');
+      
+      // Restore original URL
+      userApiService.baseUrl = userApiService.baseUrl;
+    }
+  };
+
+  const testLogin = async () => {
+    setError(null);
+    
+    try {
+      console.log('Testing login...');
+      
+      // Update the service URL temporarily
+      const originalUrl = userApiService.baseUrl;
+      userApiService.baseUrl = customUrl;
+      
+      const response = await userApiService.login('admin', '!Passw0rd');
+      console.log('Login response:', response);
+      setData({ ...data, login: response });
+      
+      // Restore original URL
+      userApiService.baseUrl = originalUrl;
+      
+    } catch (err) {
+      console.error('Login test failed:', err);
+      setError(err.message);
+      
+      // Restore original URL
+      userApiService.baseUrl = userApiService.baseUrl;
+    }
+  };
+
+  const createAdminUser = async () => {
+    // Check localStorage directly to ensure we have the latest value
+    const isAdminCreationEnabled = localStorage.getItem('adminCreationEnabled') !== 'false';
+    
+    if (!isAdminCreationEnabled) {
+      setError('Admin creation has been disabled for security reasons');
+      return;
+    }
+    
+    setError(null);
+    
+    try {
+      console.log('Creating admin user...');
+      
+      // Update the service URL temporarily
+      const originalUrl = userApiService.baseUrl;
+      userApiService.baseUrl = customUrl;
+      
+      const response = await userApiService.createUser('admin', '!Passw0rd', true);
+      console.log('Create admin response:', response);
+      setData({ ...data, createAdmin: response });
+      setStatus('success');
+      
+      // Automatically disable admin creation after successful creation
+      setAdminCreationEnabled(false);
+      localStorage.setItem('adminCreationEnabled', 'false');
+      setShowSecurityWarning(true);
+      
+      // Restore original URL
+      userApiService.baseUrl = originalUrl;
+      
+    } catch (err) {
+      console.error('Create admin failed:', err);
+      setError(err.message);
+      
+      // Restore original URL
+      userApiService.baseUrl = userApiService.baseUrl;
+    }
+  };
+
+  const toggleAdminCreation = () => {
+    const newValue = !adminCreationEnabled;
+    setAdminCreationEnabled(newValue);
+    localStorage.setItem('adminCreationEnabled', newValue.toString());
+    if (adminCreationEnabled) { // If currently enabled (will be disabled)
+      setShowSecurityWarning(true);
+    }
+  };
+  
+  const toggleDebugAccess = () => {
+    const newValue = !debugRequiresAuth;
+    
+    // Show warning if restricting access while not logged in
+    if (newValue && !isUserLoggedIn) {
+      if (confirm('⚠️ Warning: If you restrict access without being logged in, you will lose access to this page. Continue?')) {
+        localStorage.setItem('debugRequiresAuth', 'true');
+        setDebugRequiresAuth(true);
+        alert('Debug page access is now restricted to authenticated users.');
+        window.location.reload();
+      }
+    } else {
+      localStorage.setItem('debugRequiresAuth', newValue ? 'true' : 'false');
+      setDebugRequiresAuth(newValue);
+      alert(newValue ? 
+        'Debug page access is now restricted to authenticated users.' : 
+        'Debug page is now publicly accessible.');
+    }
+  };
+
+  const updateApiUrl = () => {
+    console.log('Updating API URL to:', customUrl);
+    userApiService.baseUrl = customUrl;
+    setStatus('ready');
+    setData(null);
+    setError(null);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        <h1 className="text-3xl font-bold text-gray-900 mb-6">🔧 Debug Page</h1>
+        
+        {/* Security Warning */}
+        {showSecurityWarning && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <h2 className="text-lg font-semibold text-red-800 mb-2">🔒 Security Warning</h2>
+            <div className="text-sm text-red-700 mb-3">
+              ⚠️ Admin user creation should be disabled in production environments!<br />
+              ⚠️ This debug page contains sensitive functionality.
+            </div>
+            <button
+              onClick={toggleAdminCreation}
+              className={`px-4 py-2 text-white rounded text-sm ${
+                adminCreationEnabled 
+                  ? 'bg-red-600 hover:bg-red-700' 
+                  : 'bg-green-600 hover:bg-green-700'
+              }`}
+            >
+              {adminCreationEnabled ? '🔒 Disable Admin Creation' : '🔓 Enable Admin Creation'}
+            </button>
+          </div>
+        )}
+        
+        {/* Debug Page Access Status */}
+        <div className={`border rounded-lg p-4 mb-6 ${
+          debugRequiresAuth 
+            ? 'bg-green-50 border-green-300' 
+            : 'bg-yellow-50 border-yellow-300'
+        }`}>
+          <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            {debugRequiresAuth 
+              ? <><span className="text-green-600">🔒</span><span className="text-green-800">Restricted Access</span></>
+              : <><span className="text-yellow-600">⚠️</span><span className="text-yellow-800">Public Access</span></>
+            }
+          </h2>
+          <div className="text-sm mb-3">
+            {debugRequiresAuth
+              ? <span className="text-green-700">This debug page is currently restricted to authenticated users only.</span>
+              : <span className="text-yellow-700">This debug page is currently public and accessible without authentication.</span>
+            }
+          </div>
+          <button
+            onClick={toggleDebugAccess}
+            className={`px-4 py-2 text-white rounded text-sm ${
+              debugRequiresAuth 
+                ? 'bg-blue-600 hover:bg-blue-700' 
+                : 'bg-red-600 hover:bg-red-700'
+            }`}
+          >
+            {debugRequiresAuth ? '🔓 Make Debug Page Public' : '🔒 Restrict Debug Access'}
+          </button>
+        </div>
+
+        {/* Page Load Status */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <h2 className="text-lg font-semibold text-blue-800 mb-2">Page Status</h2>
+          <div className="text-sm text-blue-700">
+            ✅ Debug page loaded successfully: {isPageLoaded ? 'YES' : 'NO'}<br />
+            ✅ React is working: YES<br />
+            ✅ JavaScript is working: YES
+          </div>
+        </div>
+
+        {/* API Configuration */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">🌐 API Configuration</h2>
+          
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Backend API URL:
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={customUrl}
+                onChange={(e) => setCustomUrl(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="http://192.168.100.48:8000"
+              />
+              <button
+                onClick={updateApiUrl}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Update URL
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Common URLs: http://localhost:8000, http://192.168.100.48:8000
+            </p>
+          </div>
+
+          <div className="text-sm text-gray-600">
+            <div><span className="font-medium">Current API Base:</span> {userApiService.baseUrl}</div>
+            <div><span className="font-medium">Test URL:</span> {customUrl}</div>
+          </div>
+        </div>
+        
+        {/* API Connection Test */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">🔗 API Connection Test</h2>
+          
+          <div className="mb-4">
+            <span className="font-medium">Status: </span>
+            <span className={`px-2 py-1 rounded text-sm ${
+              status === 'loading' ? 'bg-yellow-100 text-yellow-800' :
+              status === 'success' ? 'bg-green-100 text-green-800' :
+              'bg-red-100 text-red-800'
+            }`}>
+              {status}
+            </span>
+          </div>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-300 rounded">
+              <span className="font-medium text-red-800">Error: </span>
+              <span className="text-red-700">{error}</span>
+            </div>
+          )}
+
+          {data && (
+            <div className="mb-4">
+              <h3 className="font-medium mb-2">API Response:</h3>
+              <pre className="bg-gray-100 p-3 rounded text-sm overflow-auto">
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            </div>
+          )}
+
+          <div className="space-x-4 mb-4">
+            <button
+              onClick={() => testAPI()}
+              disabled={status === 'loading'}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300"
+            >
+              {status === 'loading' ? '🔄 Testing...' : '🏥 Test Health Check'}
+            </button>
+            
+            <button
+              onClick={testLogin}
+              disabled={status === 'loading'}
+              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-300"
+            >
+              🔐 Test Login
+            </button>
+
+            {/* Only show Create Admin button if admin creation is enabled OR user is logged in */}
+            {(adminCreationEnabled || isUserLoggedIn) && (
+              <button
+                onClick={createAdminUser}
+                disabled={status === 'loading' || !adminCreationEnabled}
+                className={`px-4 py-2 text-white rounded ${
+                  !adminCreationEnabled 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : status === 'loading'
+                    ? 'bg-gray-300'
+                    : 'bg-orange-500 hover:bg-orange-600'
+                }`}
+              >
+                {!adminCreationEnabled 
+                  ? '🔒 Admin Creation Disabled' 
+                  : '👤 Create Admin User'
+                }
+              </button>
+            )}
+
+            <button
+              onClick={() => window.open(`${customUrl}/docs`, '_blank')}
+              className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
+            >
+              📖 Open API Docs
+            </button>
+          </div>
+          
+          {(!adminCreationEnabled && isUserLoggedIn) && (
+            <div className="mt-3 text-xs text-gray-500">
+              💡 Admin creation is disabled for security. Use the toggle above to enable if needed.
+            </div>
+          )}
+          
+          {(!adminCreationEnabled && !isUserLoggedIn) && (
+            <div className="mt-3 text-xs text-red-500 font-medium">
+              ⚠️ Admin creation controls are hidden for security. Log in to manage these settings.
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">📊 System Information</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <h3 className="font-medium mb-2">Frontend Info:</h3>
+              <div className="space-y-1 text-gray-600">
+                <div><span className="font-medium">Current URL:</span> {window.location.href}</div>
+                <div><span className="font-medium">Protocol:</span> {window.location.protocol}</div>
+                <div><span className="font-medium">Host:</span> {window.location.host}</div>
+                <div><span className="font-medium">User Agent:</span> {navigator.userAgent.substring(0, 50)}...</div>
+              </div>
+            </div>
+            <div>
+              <h3 className="font-medium mb-2">API Info:</h3>
+              <div className="space-y-1 text-gray-600">
+                <div><span className="font-medium">Service URL:</span> {userApiService.baseUrl}</div>
+                <div><span className="font-medium">Test URL:</span> {customUrl}</div>
+                <div><span className="font-medium">Health Endpoint:</span> {customUrl}/health</div>
+                <div><span className="font-medium">Login Endpoint:</span> {customUrl}/users/login</div>
+              </div>
+            </div>
+            <div>
+              <h3 className="font-medium mb-2">Security Status:</h3>
+              <div className="space-y-1 text-gray-600">
+                <div>
+                  <span className="font-medium">Admin Creation:</span> 
+                  <span className={`ml-2 px-2 py-1 rounded text-xs ${
+                    adminCreationEnabled 
+                      ? 'bg-red-100 text-red-800' 
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {adminCreationEnabled ? '🔓 ENABLED' : '🔒 DISABLED'}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium">Authentication:</span>
+                  <span className={`ml-2 px-2 py-1 rounded text-xs ${
+                    isUserLoggedIn 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {isUserLoggedIn ? '✓ LOGGED IN' : '⚠️ NOT LOGGED IN'}
+                  </span>
+                </div>
+                <div><span className="font-medium">Debug Mode:</span> <span className="text-yellow-600">⚠️ ACTIVE</span></div>
+                <div><span className="font-medium">Environment:</span> Development</div>
+                <div>
+                  <span className="font-medium">Debug Page Access:</span> 
+                  <span className={`ml-2 px-2 py-1 rounded text-xs ${
+                    debugRequiresAuth 
+                      ? 'bg-red-100 text-red-800' 
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {debugRequiresAuth ? '🔒 RESTRICTED' : '🔓 PUBLIC'}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium">Login Status:</span> 
+                  <span className={`ml-2 px-2 py-1 rounded text-xs ${
+                    isUserLoggedIn 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {isUserLoggedIn ? '✓ AUTHENTICATED' : '⚠️ NOT LOGGED IN'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-4">🚀 Quick Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <button
+              onClick={() => setCustomUrl('http://localhost:8000')}
+              className="p-3 text-left border border-gray-200 rounded hover:bg-gray-50"
+            >
+              <div className="font-medium">Local Backend</div>
+              <div className="text-sm text-gray-500">http://localhost:8000</div>
+            </button>
+            
+            <button
+              onClick={() => setCustomUrl('http://192.168.100.48:8000')}
+              className="p-3 text-left border border-gray-200 rounded hover:bg-gray-50"
+            >
+              <div className="font-medium">Remote Backend</div>
+              <div className="text-sm text-gray-500">http://192.168.100.48:8000</div>
+            </button>
+            
+            <button
+              onClick={() => window.location.href = '/'}
+              className="p-3 text-left border border-gray-200 rounded hover:bg-gray-50"
+            >
+              <div className="font-medium">Go to App</div>
+              <div className="text-sm text-gray-500">Return to main app</div>
+            </button>
+            
+            <button
+              onClick={toggleDebugAccess}
+              className={`p-3 text-left border rounded hover:bg-opacity-80 ${
+                debugRequiresAuth 
+                  ? 'border-green-200 hover:bg-green-50 text-green-700' 
+                  : 'border-red-200 hover:bg-red-50 text-red-700'
+              }`}
+            >
+              <div className="font-medium">
+                {debugRequiresAuth ? '🔓 Make Debug Page Public' : '🔒 Restrict Debug Access'}
+              </div>
+              <div className={`text-sm ${debugRequiresAuth ? 'text-green-500' : 'text-red-500'}`}>
+                {debugRequiresAuth ? 'Allow access without login' : 'Require authentication'}
+              </div>
+            </button>
+            
+            <button
+              onClick={() => {
+                if (confirm('¿Estás seguro que deseas restringir el acceso a la página Debug? Después de esto, los usuarios necesitarán iniciar sesión para acceder.')) {
+                  // Set flag to require authentication for Debug page
+                  localStorage.setItem('debugRequiresAuth', 'true');
+                  setDebugRequiresAuth(true);
+                  alert('Acceso restringido. Ahora los usuarios necesitan iniciar sesión para acceder a la página Debug.');
+                }
+              }}
+              className="p-3 text-left border border-red-200 rounded hover:bg-red-50 text-red-700"
+              disabled={debugRequiresAuth}
+            >
+              <div className="font-medium">🔒 Disable Public Debug</div>
+              <div className="text-sm text-red-500">
+                {debugRequiresAuth ? 'Access already restricted' : 'Require login for this page'}
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DebugPage;

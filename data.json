@@ -1,0 +1,354 @@
+[
+  {
+    "id": "7f3e85df-698d-4bb8-9318-4b42817ae536",
+    "phrase": "Dew Point is too low",
+    "playbook": "air_quality_handler.yml"
+  },
+  {
+    "id": "265c213a-def1-4e48-add2-c34d25363aed",
+    "phrase": "Battery Temperature is too low",
+    "playbook": "temperature_handler.yml",
+    "threshold": 0.5
+  },
+  {
+    "id": "fde4e73b-8366-4d0e-8007-8a399e3326f7",
+    "phrase": "High temperature threshold violation",
+    "playbook": "temperature_handler.yml",
+    "threshold": 0.55
+  },
+  {
+    "id": "c8442655-2fc8-4539-b72f-d769d9d10b0e",
+    "phrase": "service is not running",
+    "playbook": "service_restart_role",
+    "threshold": 0.4,
+    "component": "windows",
+    "only_on_component_match": true
+  },
+  {
+    "id": "223ef957-b58b-4732-80db-7608915e2125",
+    "phrase": "Battery is not installed properly",
+    "playbook": "ups_handler.yml"
+  },
+  {
+    "id": "522bec1f-745a-4041-82e7-acf23222e6a1",
+    "phrase": "SQL Server Database has changed to RECOVERING status",
+    "playbook": "sql_instance_handler.yml",
+    "threshold": 0.6
+  },
+  {
+    "id": "b2002a62-89ba-40f4-beca-500a8622636a",
+    "phrase": "Available memory is low",
+    "playbook": "memory_handler.yml",
+    "threshold": 0.47
+  },
+  {
+    "id": "00b7b947-7b07-4042-9539-c6254d82e58f",
+    "phrase": "server node is down",
+    "playbook": "device_down_handler.yml",
+    "threshold": 0.53
+  },
+  {
+    "id": "0f7423a9-b1aa-4d26-84ce-e8b0ca150b97",
+    "phrase": "Battery requires repair",
+    "playbook": "ups_handler.yml"
+  },
+  {
+    "id": "06e4a050-f50f-4e8a-bdd1-85be657ff92c",
+    "phrase": "Battery requires repair replacement or change",
+    "playbook": "ups_handler.yml"
+  },
+  {
+    "id": "f2fa2df4-ac4a-457d-9559-9681a2ca9c21",
+    "phrase": "CRITICAL: ISXC.  The current value of Temperature - Port :Sensor  (Port  Temp ) @ Po",
+    "playbook": "temperature_handler.yml",
+    "threshold": 0.52
+  },
+  {
+    "id": "709efff1-7a42-4a6a-a7ed-ae268c664876",
+    "phrase": "System time is out of sync",
+    "playbook": "win_ntp_handler",
+    "component": "windows",
+    "only_on_component_match": true
+  },
+  {
+    "id": "314af1eb-d389-430b-a0ca-ee62999fc56f",
+    "phrase": "NTFS error or corrupt",
+    "playbook": "file_system_issues_handler.yml",
+    "threshold": 0.6
+  },
+  {
+    "id": "b43c5510-75b6-41c6-892b-bfe4fa84af9a",
+    "phrase": "fs space is low used data space used",
+    "playbook": "linux_disk_space_handler",
+    "threshold": 0.55,
+    "component": "linux",
+    "only_on_component_match": true
+  },
+  {
+    "id": "c026af63-48b3-4225-9040-7ee5a301e62d",
+    "phrase": "fs c space is low",
+    "playbook": "windows_disk_space_handler",
+    "threshold": 0.43,
+    "component": "windows",
+    "only_on_component_match": true
+  },
+  {
+    "id": "2b33a632-87d4-4e66-8a65-7fc4d787eff0",
+    "phrase": "Lost Network redundancy Lost uplink redundancy virtual switch Physical NIC is down",
+    "playbook": "network_down_handler.yml"
+  },
+  {
+    "id": "e2330194-d7f7-4fa3-bc40-5c93d396c95d",
+    "phrase": "SSL certificate expired",
+    "playbook": "SSL_find_and_renew_handler.yml"
+  },
+  {
+    "id": "26ad33a5-30ff-451a-afd1-11ed22928c23",
+    "phrase": "Status of database on node RZ is Inactive.",
+    "playbook": "oracle_session_handler.yml",
+    "threshold": 0.5376
+  },
+  {
+    "id": "3e4e2fd7-37cf-4303-8ae1-a9271e6c6ce5",
+    "phrase": "utilization swap space exceeded limit",
+    "playbook": "memory_handler.yml",
+    "threshold": 0.5
+  },
+  {
+    "id": "96d1ec61-f018-41bc-891a-efe365191ca8",
+    "phrase": "Backup failed  Status abend",
+    "playbook": "backup_failed_handler.yml",
+    "threshold": 0.5
+  },
+  {
+    "id": "e7c6cadc-febb-4471-b8fb-e2dd6ba7aeea",
+    "phrase": "Percent free are left on ASM Disk Group on node",
+    "playbook": "oracle_asm_disk_handler.yml",
+    "threshold": 0.7
+  },
+  {
+    "id": "a684eee3-29b8-4a8c-8069-4a7acf5e6a0f",
+    "phrase": "Offline agent - is not connected to Shared ITM6 Monitoring Environme",
+    "playbook": "autofix_ITM6_agent.yml"
+  },
+  {
+    "id": "e0880f92-cf18-40c5-b87c-21bc4652cb42",
+    "phrase": "Load average is too high",
+    "playbook": "win_cpu_usage_handler",
+    "threshold": 0.41,
+    "component": "windows",
+    "only_on_component_match": true
+  },
+  {
+    "id": "e69726e8-cafa-47e6-aae6-e49ad5a51e19",
+    "phrase": "Cisco: BGP Peers Peer state is not established and",
+    "playbook": "BGP_state_not_establishedyml",
+    "threshold": 0.65
+  },
+  {
+    "id": "39b0e212-6e49-4626-9b64-2d6c28bc0d96",
+    "phrase": "Cisco: AP Disconnected. MAC Address: Serial Number:",
+    "playbook": "access_point_handler.yml",
+    "threshold": 0.5
+  },
+  {
+    "id": "e89d5a20-6944-4a8a-9bcb-28eba71cbf6e",
+    "phrase": "Device failed Availability and Latency checks: Both Availability and Latency checks",
+    "playbook": "network_down_handler.yml",
+    "threshold": 0.58
+  },
+  {
+    "id": "de0336f9-6518-4611-b741-b31d15141579",
+    "phrase": "Memory Utilization Host",
+    "playbook": "memory_handler.yml",
+    "threshold": 0.47
+  },
+  {
+    "id": "a0e5436e-c6ce-4954-82e7-bac0cdb2027b",
+    "phrase": "An input voltage or frequency problem prevents switching",
+    "playbook": "ups_handler.yml",
+    "threshold": 0.4
+  },
+  {
+    "id": "aeca7630-d09d-421a-94d8-b6b8cdaf276b",
+    "phrase": "The UPS is drawing power from the batteries",
+    "playbook": "ups_handler.yml",
+    "threshold": 0.57
+  },
+  {
+    "id": "eb54cc6f-6abb-48ed-8c7b-ae72be5cb5fe",
+    "phrase": "DEVICE HAS STOPPED RESPONDING TO POLLS",
+    "playbook": "monitoring_troublshooter_handler.yml",
+    "threshold": 0.6
+  },
+  {
+    "id": "a7feda5a-cc27-4c50-9345-bb24a4cc9713",
+    "phrase": "The number of zombie is too high. Current number:",
+    "playbook": "zombie_process_handler.yml",
+    "threshold": 0.6
+  },
+  {
+    "id": "99bb3db6-4008-4dfe-b7dd-1c5ab2b836b5",
+    "phrase": "are no longer all RAC instances. Number of in",
+    "playbook": "oracle_inactive_rac.yml"
+  },
+  {
+    "id": "6739e466-c7ab-4fcd-9c91-8b730b772fdb",
+    "phrase": "Device Availability Check: ICMP Ping",
+    "playbook": "device_down_handler.yml",
+    "threshold": 0.5
+  },
+  {
+    "id": "5a4fed45-9e2c-4ed2-a3ef-572e6346b375",
+    "phrase": "Communication with has been lost",
+    "playbook": "network_down_handler.yml",
+    "threshold": 0.43
+  },
+  {
+    "id": "c0761375-346a-453f-a959-725444e5de33",
+    "phrase": "windows Cluster failed bring clustered",
+    "playbook": "windows_cluster_handler.yml",
+    "threshold": 0.47
+  },
+  {
+    "id": "b787ff8f-5f7a-4e58-b93d-921c98226873",
+    "phrase": "Memory usage threshold",
+    "playbook": "memory_handler.yml",
+    "threshold": 0.5
+  },
+  {
+    "id": "4c2b5f7d-c1e2-4652-a8d8-b254304995be",
+    "phrase": "Physical Memory Minor: currently",
+    "playbook": "memory_handler.yml"
+  },
+  {
+    "id": "32590780-78c9-4135-b99d-8df64c51f1a7",
+    "phrase": "File system usage hard disk space",
+    "playbook": "disk_space_role",
+    "threshold": 0.45
+  },
+  {
+    "id": "ca9ce188-4228-44fc-bfbc-89b26ffd3b8c",
+    "phrase": "System restarted recently Current",
+    "playbook": "server_recovered_diagnosis.yml",
+    "threshold": 0.44
+  },
+  {
+    "id": "9d8d3a1b-d1e2-42f2-8bee-897e958cf9b9",
+    "phrase": "ESX Server",
+    "playbook": "esx_handler.yml"
+  },
+  {
+    "id": "464d5b91-e1f7-4465-bc52-d3b5bbe98938",
+    "phrase": "Disk Usage Above",
+    "playbook": "disk_space_handler.yml"
+  },
+  {
+    "id": "cf2134c2-6ece-4c1b-90a7-7bddc86079b8",
+    "phrase": "Load average is too high",
+    "playbook": "linux_cpu_usage_handler",
+    "threshold": 0.42,
+    "component": "linux",
+    "only_on_component_match": true
+  },
+  {
+    "id": "ddafc408-dc27-4355-9325-8f81dc1db291",
+    "phrase": "windows disk Used for logical disk",
+    "playbook": "disk_space_handler.yml",
+    "threshold": 0.43
+  },
+  {
+    "id": "dcb8f2d1-d4f8-4456-892e-0da2726434e7",
+    "phrase": "filesystem limit usage",
+    "playbook": "disk_space_handler.yml",
+    "threshold": 0.4
+  },
+  {
+    "id": "608a7c73-33ad-47e4-bbb7-cd193850f9b1",
+    "phrase": "System time is out of sync",
+    "playbook": "linux_ntp_handler",
+    "threshold": 0.4,
+    "component": "linux",
+    "only_on_component_match": true
+  },
+  {
+    "id": "ddfca4fc-755a-46e8-bdbc-c594014042ff",
+    "phrase": "Zabbix agent availability",
+    "playbook": "zabbix_agent_issues_windows",
+    "threshold": 0.4,
+    "component": "windows",
+    "only_on_component_match": true
+  },
+  {
+    "id": "96424941-e259-4c48-a3d8-762668030e9e",
+    "phrase": "windows: Zabbix agent is not available",
+    "playbook": "zabbix_agent_issues_windows",
+    "threshold": 0.4,
+    "component": "windows",
+    "only_on_component_match": false
+  },
+  {
+    "id": "94e6ff20-625f-4091-bc6b-c1f9ad477087",
+    "phrase": "linux: Zabbix agent is not available",
+    "playbook": "zabbix_agent_issues_linux",
+    "threshold": 0.4,
+    "component": "linux",
+    "only_on_component_match": true
+  },
+  {
+    "id": "12722b34-eb0a-4bef-b5b6-df1acac12d8e",
+    "phrase": "CPU queue length is too high",
+    "playbook": "win_cpu_usage_handler",
+    "threshold": 0.4,
+    "component": "windows",
+    "only_on_component_match": true
+  },
+  {
+    "id": "5a1cb1bd-7e6a-4ddd-b669-358ef5956e37",
+    "phrase": "CPU privileged time is too high",
+    "playbook": "win_cpu_usage_handler",
+    "threshold": 0.4,
+    "component": "windows",
+    "only_on_component_match": true
+  },
+  {
+    "id": "78f42613-8b56-4a95-ad91-869555cfdccd",
+    "phrase": "CPU privileged time is too high",
+    "playbook": "linux_cpu_usage_handler",
+    "threshold": 0.4,
+    "component": "linux",
+    "only_on_component_match": true
+  },
+  {
+    "id": "6e41d412-794d-4868-bd80-86217562d6b1",
+    "phrase": "CPU queue length is too high",
+    "playbook": "linux_cpu_usage_handler",
+    "threshold": 0.4,
+    "component": "linux",
+    "only_on_component_match": true
+  },
+  {
+    "id": "b42e34d9-7c49-42b3-8090-4666a6b01249",
+    "phrase": "Host has been restarted",
+    "playbook": "win_restarted_handler",
+    "threshold": 0.4,
+    "component": "windows",
+    "only_on_component_match": true
+  },
+  {
+    "id": "dffbb63b-98c2-420c-bba0-e41f6052f8ad",
+    "phrase": "Host has been restarted",
+    "playbook": "linux_restarted_handler",
+    "threshold": 0.4,
+    "component": "linux",
+    "only_on_component_match": true
+  },
+  {
+    "id": "7d867164-0d74-483a-a9bf-4673227f2863",
+    "phrase": "service is not running startup type automatic host",
+    "playbook": "service_restart_role",
+    "threshold": 0.4,
+    "component": "windows",
+    "only_on_component_match": true
+  }
+]
