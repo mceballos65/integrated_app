@@ -24,7 +24,7 @@
     "security": true,
     "github": false,
     "logging": false,
-    "user_management": true,
+    "user_management": false,
     "users": true
   }
 }

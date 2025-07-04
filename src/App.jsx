@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Routes, Route, NavLink } from "react-router-dom";
+import { Routes, Route, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./hooks/useAuth.jsx";
 import PredictionPage from "./pages/PredictionPage";
 import ConfigurationPage from "./pages/ConfigurationPage";
@@ -9,6 +9,7 @@ import LoginPageNew from "./components/LoginPageNew";
 import LoginFormSimple from "./components/LoginFormSimple";
 import DebugPage from "./pages/DebugPage";
 import SimpleTest from "./pages/SimpleTest";
+import HelpPage from "./pages/HelpPage";
 import kyndrylLogo from "./assets/kyndryl_logo.svg";
 import useConfigStore from "./store";
 import { getBackendUrl, isInitialSetupCompleted } from "./configStorage";
@@ -208,6 +209,8 @@ function InitialSetupScreen() {
 // Main App Component wrapped with Auth
 function AppContent() {
   const { isLoggedIn, user, logout, isLoading: authLoading, securityWarning } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [appInitialized, setAppInitialized] = useState(false);
   const [isUnconfigured, setIsUnconfigured] = useState(false);
   
@@ -245,7 +248,7 @@ function AppContent() {
           
           if (!exists) {
             console.log("Configuration not found on backend, showing setup screen");
-            appLogger.warn('CONFIG', 'Configuration not found on backend');
+            appLogger.warn('CONFIG', 'Configuration not found on backend. Redirect to setup screen');
             setIsUnconfigured(true);
             setAppInitialized(true);
             return;
@@ -383,7 +386,15 @@ function AppContent() {
   }
 
   if (!isLoggedIn) {
-    return <LoginPageNew />;
+    // Check if we're already on a public route
+    const currentPath = location.pathname;
+    if (currentPath === '/help' || currentPath === '/login') {
+      return null; // Let the public route render
+    }
+    
+    // Redirect to login page for protected routes
+    navigate('/login');
+    return null;
   }
 
   return (
@@ -475,7 +486,7 @@ function AppContent() {
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                 </svg>
               </div>
-              <p className="text-sm ml-3">{securityWarning} <NavLink to="/config" className="font-bold underline">Go to Configuration</NavLink></p>
+              <p className="text-sm ml-3">{securityWarning} <NavLink to="/config?from=security" className="font-bold underline">Go to Configuration</NavLink></p>
             </div>
           </div>
         </div>
@@ -498,7 +509,14 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <Routes>
+        {/* Public routes */}
+        <Route path="/help" element={<HelpPage />} />
+        <Route path="/login" element={<LoginPageNew />} />
+        
+        {/* All other routes go through AppContent (which handles auth) */}
+        <Route path="/*" element={<AppContent />} />
+      </Routes>
     </AuthProvider>
   );
 }

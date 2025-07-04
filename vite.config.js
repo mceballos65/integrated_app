@@ -14,5 +14,13 @@ export default defineConfig({
   },
   define: {
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+  },
+  publicDir: 'public',
+  // Copy app_data directory to build for serving config files
+  assetsInclude: ['**/*.json'],
+  resolve: {
+    alias: {
+      '/app_data': './app_data'
+    }
   }
 });

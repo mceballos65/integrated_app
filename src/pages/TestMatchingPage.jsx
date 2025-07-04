@@ -1,12 +1,38 @@
 import React, { useState, useEffect } from "react";
+import { NavLink } from "react-router-dom";
 import useConfigStore from "../store";
+import { useAuth } from "../hooks/useAuth.jsx";
+import ComponentSelector from "../components/ComponentSelector.jsx";
 
 export default function TestMatchingPage() {
   const { config } = useConfigStore();
+  const { securityWarning } = useAuth();
+  
+  // If there are security warnings, block access to this critical page
+  if (securityWarning) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-red-100 border border-red-300 rounded-lg p-6 text-center">
+            <h2 className="text-2xl font-bold text-red-700 mb-4">⚠️ Security Warning</h2>
+            <p className="text-red-600 mb-4">
+              The test matching page is currently unavailable due to security issues. Please review security settings to ensure the default admin user is disabled and debug access is properly configured.
+            </p>
+            <NavLink 
+              to="/config?from=security" 
+              className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Go to Configuration
+            </NavLink>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   // Get values directly from config
   const predictionUrl = config?.app?.prediction_url || "";
-  const accountCode = config?.app?.account_code || "ACM";
+  const accountCode = config?.app?.account_code || "";
   
   console.log("TestMatchingPage - Config values:", { predictionUrl, accountCode, config });
   const [abstract, setAbstract] = useState("");
@@ -91,15 +117,11 @@ export default function TestMatchingPage() {
 
       <div>
         <label className="block font-semibold mb-1">Component</label>
-        <select
+        <ComponentSelector
           value={component}
           onChange={(e) => setComponent(e.target.value)}
           className="w-full border border-gray-300 rounded px-3 py-2"
-        >
-          <option value="">-- Select --</option>
-          <option value="windows">windows</option>
-          <option value="linux">linux</option>
-        </select>
+        />
       </div>
 
       <button

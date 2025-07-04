@@ -460,17 +460,17 @@ export default function LogsPage() {
     }
   };
 
-  if (securityWarning && adminUserDisabled) {
+  if (securityWarning) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 p-6">
         <div className="max-w-4xl mx-auto">
           <div className="bg-red-100 border border-red-300 rounded-lg p-6 text-center">
             <h2 className="text-2xl font-bold text-red-700 mb-4">⚠️ Security Warning</h2>
             <p className="text-red-600 mb-4">
-              The logs page is currently unavailable because the admin user is disabled for security reasons.
+              The logs page is currently unavailable due to security issues. Please review security settings to ensure the default admin user is disabled and debug access is properly configured.
             </p>
             <NavLink 
-              to="/configuration" 
+              to="/config?from=security" 
               className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors"
             >
               Go to Configuration

@@ -132,7 +132,7 @@ class ConfigRequest(BaseModel):
 
 class AppConfig(BaseModel):
     prediction_url: Optional[str] = ""
-    account_code: Optional[str] = "ACM"
+    account_code: Optional[str] = ""
 
 class LoggingConfig(BaseModel):
     logFileLocation: Optional[str] = "./app_data/logs/predictions.log"
@@ -167,7 +167,7 @@ def get_default_config():
     return {
         "app": {
             "prediction_url": "",
-            "account_code": "ACM"
+            "account_code": ""
         },
         "logging": {
             "logFileLocation": "./app_data/logs/predictions.log",
@@ -1665,3 +1665,352 @@ async def get_log_cleanup_status():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving log cleanup status: {str(e)}")
+
+# Nuevos modelos Pydantic para la gestión de componentes
+class ComponentCreate(BaseModel):
+    name: str
+    value: str
+    description: Optional[str] = ""
+    enabled: Optional[bool] = True
+
+class ComponentUpdate(BaseModel):
+    name: Optional[str] = None
+    value: Optional[str] = None
+    description: Optional[str] = None
+    enabled: Optional[bool] = None
+
+class ComponentResponse(BaseModel):
+    id: str
+    name: str
+    value: str
+    description: str
+    enabled: bool
+
+# ========================================
+# ENDPOINTS DE GESTIÓN DE COMPONENTES
+# ========================================
+
+components = []  # Almacenamiento en memoria para los componentes
+
+# Endpoint: Agregar componente
+@app.post("/components")
+def add_component(component_data: ComponentCreate):
+    """Agregar un nuevo componente"""
+    new_component = {
+        "id": str(uuid.uuid4()),
+        "name": component_data.name,
+        "value": component_data.value,
+        "description": component_data.description or "",
+        "enabled": component_data.enabled if component_data.enabled is not None else True
+    }
+    components.append(new_component)
+    
+    # Guardar en archivo (opcional)
+    # save_components_to_file(components)
+    
+    return {"message": "Componente agregado", "id": new_component["id"]}
+
+# Endpoint: Listar componentes
+@app.get("/components", response_model=List[ComponentResponse])
+def list_components():
+    """Listar todos los componentes"""
+    return components
+
+# Endpoint: Obtener información de un componente
+@app.get("/components/{component_id}", response_model=ComponentResponse)
+def get_component(component_id: str):
+    """Obtener información detallada de un componente"""
+    component = next((c for c in components if c["id"] == component_id), None)
+    if not component:
+        raise HTTPException(status_code=404, detail="Componente no encontrado")
+    
+    return component
+
+# Endpoint: Modificar componente
+@app.put("/components/{component_id}")
+def update_component(component_id: str, component_data: ComponentUpdate):
+    """Modificar un componente existente"""
+    component = next((c for c in components if c["id"] == component_id), None)
+    if not component:
+        raise HTTPException(status_code=404, detail="Componente no encontrado")
+    
+    # Actualizar campos
+    if component_data.name is not None:
+        component["name"] = component_data.name
+    if component_data.value is not None:
+        component["value"] = component_data.value
+    if component_data.description is not None:
+        component["description"] = component_data.description
+    if component_data.enabled is not None:
+        component["enabled"] = component_data.enabled
+    
+    # Guardar en archivo (opcional)
+    # save_components_to_file(components)
+    
+    return {"message": "Componente modificado"}
+
+# Endpoint: Eliminar componente
+@app.delete("/components/{component_id}")
+def delete_component(component_id: str):
+    """Eliminar un componente"""
+    global components
+    components = [c for c in components if c["id"] != component_id]
+    
+    # Guardar en archivo (opcional)
+    # save_components_to_file(components)
+    
+    return {"message": "Componente eliminado"}
+
+# Component management functions
+COMPONENT_LIST_FILE = "app_data/config/component_list.json"
+
+def load_components():
+    """Load components from component_list.json"""
+    try:
+        if not os.path.exists(COMPONENT_LIST_FILE):
+            # Create default components if file doesn't exist
+            default_components = {
+                "components": [
+                    {
+                        "id": "windows",
+                        "name": "Windows",
+                        "value": "windows",
+                        "description": "Windows operating system components",
+                        "enabled": True
+                    },
+                    {
+                        "id": "linux", 
+                        "name": "Linux",
+                        "value": "linux",
+                        "description": "Linux operating system components",
+                        "enabled": True
+                    },
+                    {
+                        "id": "network",
+                        "name": "Network",
+                        "value": "network", 
+                        "description": "Network infrastructure components",
+                        "enabled": True
+                    }
+                ]
+            }
+            save_components(default_components)
+            return default_components
+        
+        with open(COMPONENT_LIST_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        logging.error(f"Error loading components: {e}")
+        return {"components": []}
+
+def save_components(components_data):
+    """Save components to component_list.json"""
+    try:
+        os.makedirs(os.path.dirname(COMPONENT_LIST_FILE), exist_ok=True)
+        with open(COMPONENT_LIST_FILE, 'w', encoding='utf-8') as f:
+            json.dump(components_data, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        logging.error(f"Error saving components: {e}")
+        return False
+
+def get_component_by_id(component_id):
+    """Get a specific component by ID"""
+    components_data = load_components()
+    for component in components_data.get("components", []):
+        if component.get("id") == component_id:
+            return component
+    return None
+
+def generate_component_id(name, value):
+    """Generate a unique ID for a component"""
+    # Use value as base, fallback to name, then random UUID
+    base_id = (value or name or str(uuid.uuid4())).lower().replace(" ", "-")
+    components_data = load_components()
+    existing_ids = [comp.get("id") for comp in components_data.get("components", [])]
+    
+    if base_id not in existing_ids:
+        return base_id
+    
+    # If ID exists, append number
+    counter = 1
+    while f"{base_id}-{counter}" in existing_ids:
+        counter += 1
+    return f"{base_id}-{counter}"
+
+# Component management endpoints
+
+@app.get("/api/components", response_model=Dict[str, List[ComponentResponse]])
+async def get_components():
+    """Get all components"""
+    try:
+        components_data = load_components()
+        return {"components": components_data.get("components", [])}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading components: {str(e)}")
+
+@app.get("/api/components/enabled", response_model=Dict[str, List[ComponentResponse]])
+async def get_enabled_components():
+    """Get only enabled components"""
+    try:
+        components_data = load_components()
+        enabled_components = [
+            comp for comp in components_data.get("components", []) 
+            if comp.get("enabled", True)
+        ]
+        return {"components": enabled_components}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading enabled components: {str(e)}")
+
+@app.get("/api/components/{component_id}", response_model=ComponentResponse)
+async def get_component(component_id: str):
+    """Get a specific component by ID"""
+    try:
+        component = get_component_by_id(component_id)
+        if not component:
+            raise HTTPException(status_code=404, detail="Component not found")
+        return component
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading component: {str(e)}")
+
+@app.post("/api/components", response_model=ComponentResponse)
+async def create_component(component: ComponentCreate):
+    """Create a new component"""
+    try:
+        components_data = load_components()
+        
+        # Check if value already exists
+        existing_values = [comp.get("value") for comp in components_data.get("components", [])]
+        if component.value in existing_values:
+            raise HTTPException(status_code=400, detail="Component value already exists")
+        
+        # Generate unique ID
+        new_id = generate_component_id(component.name, component.value)
+        
+        # Create new component
+        new_component = {
+            "id": new_id,
+            "name": component.name,
+            "value": component.value,
+            "description": component.description or "",
+            "enabled": component.enabled
+        }
+        
+        # Add to components list
+        components_data["components"].append(new_component)
+        
+        # Save to file
+        if not save_components(components_data):
+            raise HTTPException(status_code=500, detail="Error saving component")
+        
+        return new_component
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating component: {str(e)}")
+
+@app.put("/api/components/{component_id}", response_model=ComponentResponse)
+async def update_component(component_id: str, component_update: ComponentUpdate):
+    """Update an existing component"""
+    try:
+        components_data = load_components()
+        
+        # Find component index
+        component_index = None
+        for i, comp in enumerate(components_data.get("components", [])):
+            if comp.get("id") == component_id:
+                component_index = i
+                break
+        
+        if component_index is None:
+            raise HTTPException(status_code=404, detail="Component not found")
+        
+        # Check if new value conflicts with existing ones (excluding current component)
+        if component_update.value:
+            existing_values = [
+                comp.get("value") for i, comp in enumerate(components_data.get("components", []))
+                if i != component_index
+            ]
+            if component_update.value in existing_values:
+                raise HTTPException(status_code=400, detail="Component value already exists")
+        
+        # Update component fields
+        current_component = components_data["components"][component_index]
+        if component_update.name is not None:
+            current_component["name"] = component_update.name
+        if component_update.value is not None:
+            current_component["value"] = component_update.value
+        if component_update.description is not None:
+            current_component["description"] = component_update.description
+        if component_update.enabled is not None:
+            current_component["enabled"] = component_update.enabled
+        
+        # Save to file
+        if not save_components(components_data):
+            raise HTTPException(status_code=500, detail="Error saving component")
+        
+        return current_component
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating component: {str(e)}")
+
+@app.delete("/api/components/{component_id}")
+async def delete_component(component_id: str):
+    """Delete a component"""
+    try:
+        components_data = load_components()
+        
+        # Find and remove component
+        original_count = len(components_data.get("components", []))
+        components_data["components"] = [
+            comp for comp in components_data.get("components", [])
+            if comp.get("id") != component_id
+        ]
+        
+        if len(components_data["components"]) == original_count:
+            raise HTTPException(status_code=404, detail="Component not found")
+        
+        # Save to file
+        if not save_components(components_data):
+            raise HTTPException(status_code=500, detail="Error saving components")
+        
+        return {"message": "Component deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting component: {str(e)}")
+
+@app.post("/api/components/{component_id}/toggle")
+async def toggle_component(component_id: str):
+    """Toggle component enabled status"""
+    try:
+        components_data = load_components()
+        
+        # Find component
+        component = None
+        for comp in components_data.get("components", []):
+            if comp.get("id") == component_id:
+                component = comp
+                break
+        
+        if not component:
+            raise HTTPException(status_code=404, detail="Component not found")
+        
+        # Toggle enabled status
+        component["enabled"] = not component.get("enabled", True)
+        
+        # Save to file
+        if not save_components(components_data):
+            raise HTTPException(status_code=500, detail="Error saving component")
+        
+        return {
+            "message": f"Component {'enabled' if component['enabled'] else 'disabled'} successfully",
+            "component": component
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error toggling component: {str(e)}")

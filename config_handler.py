@@ -14,7 +14,7 @@ DEFAULT_CONFIG_FILENAME = "app_data/config/app_config.json"
 DEFAULT_CONFIG = {
     "app": {
         "prediction_url": "http://localhost:8000",
-        "account_code": "ACM"
+        "account_code": ""
     },
     "logging": {
         "file_location": "./app_data/logs/predictions.log",

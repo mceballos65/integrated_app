@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from "react";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import useConfigStore from "../store";
 import { useAuth, useUserManagement } from "../hooks/useAuth.jsx";
+import useComponents from "../hooks/useComponents.jsx";
 import userApiService from "../services/userApi";
 import { getBackendUrl, setBackendUrl, markSetupCompleted } from "../configStorage";
 import appLogger from "../services/appLogger";
 
 export default function ConfigurationPage() {
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  
   const {
     config,
     configLoaded,
@@ -18,10 +23,18 @@ export default function ConfigurationPage() {
   // We'll use config values directly instead of getters
   const adminUserDisabled = config?.security?.admin_user_disabled || false;
   const debugRequiresAuth = config?.security?.debug_requires_auth || false;
+  const { securityWarning } = useAuth();
+  const { refreshUsers, users } = useUserManagement();
 
-  const { refreshUsers } = useUserManagement();
+  // Check if we came from a security warning
+  const fromSecurityWarning = searchParams.get('from') === 'security';
+  const shouldHighlightSecurity = fromSecurityWarning || !!securityWarning;
+  
+  // Check if there are active users other than admin
+  const hasAlternativeUsers = users.filter(user => user.username !== 'admin' && user.is_active).length > 0;
+  
   const [localPredictionUrl, setLocalPredictionUrl] = useState("");
-  const [localAccountCode, setLocalAccountCode] = useState("ACM");
+  const [localAccountCode, setLocalAccountCode] = useState("");
   const [isAdminUserActive, setIsAdminUserActive] = useState(false);
 
   const [localGithubToken, setLocalGithubToken] = useState("");
@@ -36,12 +49,44 @@ export default function ConfigurationPage() {
 
   // Active panel state for the new sidebar layout
   const [activePanel, setActivePanel] = useState(() => {
-    // Recuperar el panel activo de localStorage o usar "backend" como valor predeterminado
+    // If coming from security warning, go to security tab
+    if (fromSecurityWarning) {
+      return "security";
+    }
+    // Otherwise, recover from localStorage or use "backend" as default
     return localStorage.getItem('kyndryl_active_panel') || "backend";
   });
 
+  // Debug logging (after activePanel is declared)
+  console.log('ConfigurationPage Debug:', {
+    users,
+    hasAlternativeUsers,
+    activePanel,
+    adminUserDisabled,
+    debugRequiresAuth
+  });
+
+  // Auto-switch to security panel if coming from security warning
+  useEffect(() => {
+    if (fromSecurityWarning && activePanel !== "security") {
+      setActivePanel("security");
+      localStorage.setItem('kyndryl_active_panel', "security");
+    }
+  }, [fromSecurityWarning, activePanel]);
+
+  // Load users when component mounts
+  useEffect(() => {
+    refreshUsers();
+  }, [refreshUsers]);
+
   // Función personalizada para cambiar el panel activo y guardarlo en localStorage
   const changeActivePanel = async (panel) => {
+    // Only apply user validation if trying to leave "users" panel AND there are still security issues
+    if (activePanel === "users" && panel !== "users" && !hasAlternativeUsers && !adminUserDisabled) {
+      showStatusMessage('Please create a new user before leaving this section', true);
+      return;
+    }
+    
     console.log(`Switching to panel: ${panel}, reloading config from backend...`);
     setActivePanel(panel);
     localStorage.setItem('kyndryl_active_panel', panel);
@@ -121,7 +166,7 @@ export default function ConfigurationPage() {
     if (configLoaded && config) {
       // Use values directly from config instead of getters
       const directPredictionUrl = config?.app?.prediction_url || "";
-      const directAccountCode = config?.app?.account_code || "ACM";
+      const directAccountCode = config?.app?.account_code || "";
       const directGithubToken = config?.github?.token || "";
       const directGithubRepoUrl = config?.github?.repo_url || "";
       const directGithubBranch = config?.github?.branch || "main";
@@ -222,6 +267,14 @@ export default function ConfigurationPage() {
   }, [adminUserDisabled, configLoaded, refreshUsers]);
 
   const handleSave = async () => {
+    // Check if Account Code is empty
+    if (!localAccountCode || localAccountCode.trim() === "") {
+      showStatusMessage("Account Code is required. Please enter a 3-character code.", true);
+      appLogger.warn('CONFIG_VALIDATION', 'Account code is required but not provided');
+      return;
+    }
+
+    // Check if Account Code format is valid
     if (!/^[a-zA-Z0-9]{3}$/.test(localAccountCode)) {
       showStatusMessage("Account Code must be exactly 3 alphanumeric characters.", true);
       appLogger.warn('CONFIG_VALIDATION', 'Invalid account code format', { accountCode: localAccountCode });
@@ -279,7 +332,7 @@ export default function ConfigurationPage() {
         console.log("Syncing local state with updated config");
         // Use snake_case field names that come from backend
         setLocalPredictionUrl(updatedConfig.app?.prediction_url || "");
-        setLocalAccountCode(updatedConfig.app?.account_code || "ACM");
+        setLocalAccountCode(updatedConfig.app?.account_code || "");
         setLocalGithubToken(updatedConfig.github?.token || "");
         setLocalRepositoryUrl(updatedConfig.github?.repo_url || "");
         setLocalBranchName(updatedConfig.github?.branch || "");
@@ -452,6 +505,21 @@ export default function ConfigurationPage() {
               )}
             </button>
 
+            {/* Components Management */}
+            <button
+              onClick={() => changeActivePanel("components")}
+              className={`w-full text-left p-3 rounded-lg transition-colors ${
+                activePanel === "components" 
+                  ? "bg-kyndryl-orange text-white" 
+                  : "hover:bg-gray-100 text-gray-700"
+              }`}
+            >
+              <div className="flex items-center">
+                <span className="text-lg mr-3">🧩</span>
+                <span className="font-medium">Components</span>
+              </div>
+            </button>
+
             {/* User Management */}
             <button
               onClick={() => changeActivePanel("users")}
@@ -554,6 +622,10 @@ export default function ConfigurationPage() {
             handleSave={handleSave}
           />}
 
+          {activePanel === "components" && <ComponentsPanel 
+            showStatusMessage={showStatusMessage}
+          />}
+
           {activePanel === "users" && <UserManagementPanel 
             showStatusMessage={showStatusMessage}
             markConfigAsEdited={markConfigAsEdited}
@@ -571,6 +643,9 @@ export default function ConfigurationPage() {
             showStatusMessage={showStatusMessage}
             markConfigAsEdited={markConfigAsEdited}
             reloadConfig={reloadConfigAfterChange}
+            shouldHighlightSecurity={shouldHighlightSecurity}
+            securityWarning={securityWarning}
+            changeActivePanel={changeActivePanel}
           />}
 
           {activePanel === "logs" && <LogConfigPanel 
@@ -589,6 +664,16 @@ export default function ConfigurationPage() {
             handleGitAction={handleGitAction}
             gitStatus={gitStatus}
           />}
+          
+          {/* Need Help Link - appears at the bottom of all tabs */}
+          <div className="mt-8 text-center border-t border-gray-200 pt-6">
+            <Link
+              to="/help"
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium hover:underline transition-colors duration-200"
+            >
+              Need Help?
+            </Link>
+          </div>
         </div>
       </div>
     </div>
@@ -731,24 +816,36 @@ function AppConfigPanel({ localPredictionUrl, setLocalPredictionUrl, localAccoun
         </div>
 
         <div>
-          <label className="block font-semibold mb-1">Account Code (tri-code)</label>
+          <label className="block font-semibold mb-1">
+            Account Code (tri-code) <span className="text-red-500">*</span>
+          </label>
           <input
             type="text"
             value={localAccountCode}
             onChange={(e) => setLocalAccountCode(e.target.value.toUpperCase())}
             maxLength="3"
-            className="w-full border border-gray-300 rounded px-3 py-2"
-            placeholder="ACM"
+            className={`w-full border rounded px-3 py-2 ${
+              localAccountCode.trim() === "" 
+                ? "border-red-300 focus:border-red-500 focus:ring-red-200" 
+                : "border-gray-300 focus:border-blue-500 focus:ring-blue-200"
+            } focus:outline-none focus:ring-2`}
+            placeholder="Ex: ABC"
+            required
           />
           <p className="text-sm text-gray-600 mt-1">
-            Three-character account identifier GSMA code.
+            <span className="text-red-500">*Required:</span> Three-character account identifier GSMA code.
           </p>
         </div>
       </div>
 
       <button
         onClick={handleSave}
-        className="w-full bg-kyndryl-orange text-white font-bold py-2 px-4 rounded mt-6 hover:bg-orange-600"
+        disabled={!localAccountCode || localAccountCode.trim() === ""}
+        className={`w-full font-bold py-2 px-4 rounded mt-6 transition-colors duration-200 ${
+          !localAccountCode || localAccountCode.trim() === ""
+            ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+            : "bg-kyndryl-orange text-white hover:bg-orange-600"
+        }`}
       >
         Save Configuration
       </button>
@@ -788,20 +885,68 @@ function UserManagementPanel({ showStatusMessage, markConfigAsEdited, reloadConf
   );
 }
 
-function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserActive, setIsAdminUserActive, updateConfig, refreshUsers, showStatusMessage, markConfigAsEdited, reloadConfig }) {
+function AdminSecurityPanel({ 
+  adminUserDisabled, 
+  debugRequiresAuth, 
+  isAdminUserActive, 
+  setIsAdminUserActive, 
+  updateConfig, 
+  refreshUsers, 
+  showStatusMessage, 
+  markConfigAsEdited, 
+  reloadConfig, 
+  shouldHighlightSecurity, 
+  securityWarning,
+  changeActivePanel // Add this to allow navigation to user management
+}) {
   // Estado local para manejar el toggle de protección de la página de debug
   const [isDebugProtected, setIsDebugProtected] = useState(debugRequiresAuth);
+  
+  // Get users list to check if there are alternative admin users
+  const { users, refreshUsers: refreshUsersList } = useUserManagement();
   
   // Sincronizar el estado local cuando cambia el prop
   useEffect(() => {
     setIsDebugProtected(debugRequiresAuth);
   }, [debugRequiresAuth]);
+
+  // Load users when component mounts
+  useEffect(() => {
+    refreshUsersList();
+  }, [refreshUsersList]);
+
+  // Check if there are active users other than admin
+  const hasAlternativeUsers = users.filter(user => user.username !== 'admin' && user.is_active).length > 0;
+
+  // Determine which controls to highlight based on security issues
+  const highlightAdminUser = shouldHighlightSecurity && !adminUserDisabled;
+  const highlightDebugAccess = shouldHighlightSecurity && !debugRequiresAuth;
   return (
     <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200">
       <div className="flex items-center mb-6">
         <span className="text-2xl mr-3">🔒</span>
         <h2 className="text-2xl font-bold text-kyndryl-orange">Admin Security</h2>
       </div>
+
+      {/* Special warning if coming from security issue */}
+      {shouldHighlightSecurity && securityWarning && (
+        <div className="p-4 mb-6 bg-red-50 border border-red-300 rounded-lg">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">🚨 Security Issues Detected</h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p className="mb-2">{securityWarning}</p>
+                <p className="font-medium">Please fix the highlighted security settings below:</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="p-4 mb-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700">
         <div className="flex">
@@ -813,18 +958,49 @@ function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserA
           <div className="ml-3">
             <h3 className="text-sm font-medium">Security Best Practice</h3>
             <div className="mt-2 text-sm">
-              <p>The following security settings are strongly recommended:</p>
+              <p>The following security settings are enforced:</p>
               <ul className="list-disc pl-5 mt-2">
                 <li><strong>Disable default "admin" user</strong> - Create a new administrator account with a different username.</li>
                 <li><strong>Restrict debug page access</strong> - Make the debug page accessible only to authenticated users.</li>
               </ul>
+              <div className="mt-2 text-sm">
+              <p><strong>Prediction, Test Matcher and Log pages are unavailable until this is configured</strong></p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Warning when no alternative users exist */}
+      {!hasAlternativeUsers && (
+        <div className="p-4 mb-6 bg-orange-50 border border-orange-300 rounded-lg">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-orange-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.485 3.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 3.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-orange-800">⚠️ Please create another user first</h3>
+              <div className="mt-2 text-sm text-orange-700">
+                <p className="mb-2">You cannot disable the default admin user until you create an alternative administrator account.</p>
+                <button 
+                  onClick={() => changeActivePanel('users')}
+                  className="font-medium text-orange-800 underline hover:text-orange-900"
+                >
+                  Create another user →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Admin User Security Setting */}
-      <div className="flex items-center space-x-2 mb-6">
+      <div className={`flex items-center space-x-2 mb-6 p-3 rounded-lg ${highlightAdminUser ? 'border-2 border-red-500 bg-red-50' : ''}`}>
+        {highlightAdminUser && (
+          <div className="mr-2 text-red-500 text-xl">🚨</div>
+        )}
         <div className="flex-1">
           <label className="inline-flex items-center cursor-pointer">
             <input 
@@ -832,13 +1008,20 @@ function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserA
               checked={adminUserDisabled} 
               onChange={async (e) => {
                 const newConfigValue = e.target.checked; // true = disabled, false = enabled
+                
+                // If trying to disable admin user, check if there are alternative users
+                if (newConfigValue && !hasAlternativeUsers) {
+                  showStatusMessage('Cannot disable admin user: Please create another user first', true);
+                  return;
+                }
+                
                 try {
                   // First update the backend configuration
                   await updateConfig({
                     security: { admin_user_disabled: newConfigValue }
                   });
                   
-                  // Then sync the actual user status to match the config
+                  // Then sync the actual user status to match
                   if (newConfigValue && isAdminUserActive) {
                     // Config says disable, and user is currently active -> deactivate user
                     const userApiService = await import("../services/userApi");
@@ -872,6 +1055,12 @@ function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserA
         </div>
         <button 
           onClick={async () => {
+            // Check if there are alternative users before disabling admin
+            if (!hasAlternativeUsers) {
+              showStatusMessage('Cannot disable admin user: Please create another user first', true);
+              return;
+            }
+            
             try {
               // Update backend configuration first
               await updateConfig({
@@ -895,15 +1084,18 @@ function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserA
               showStatusMessage(`Error applying security setting: ${error.message}`, true);
             }
           }}
-          disabled={adminUserDisabled}
-          className={`px-4 py-2 text-sm text-white font-medium rounded ${adminUserDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+          disabled={adminUserDisabled || !hasAlternativeUsers}
+          className={`px-4 py-2 text-sm text-white font-medium rounded ${(adminUserDisabled || !hasAlternativeUsers) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
         >
           Apply Security Setting
         </button>
       </div>
 
       {/* Debug Page Security Setting */}
-      <div className="flex items-center space-x-2">
+      <div className={`flex items-center space-x-2 p-3 rounded-lg ${highlightDebugAccess ? 'border-2 border-red-500 bg-red-50' : ''}`}>
+        {highlightDebugAccess && (
+          <div className="mr-2 text-red-500 text-xl">🚨</div>
+        )}
         <div className="flex-1">
           <label className="inline-flex items-center cursor-pointer">
             <input 
@@ -1265,379 +1457,348 @@ function GitHubConfigPanel({ localGithubToken, setLocalGithubToken, localReposit
   );
 }
 
-// User Management Section Component
-function UserManagementSection({ showStatusMessage, onUserAction, reloadConfig, updateConfig }) {
-  const { user: currentUser } = useAuth();
-  const {
-    users,
-    isLoading,
-    error,
-    createUser,
-    updateUser,
-    deleteUser,
-    toggleUserStatus,
-    changePassword,
-    refreshUsers
-  } = useUserManagement();
+// Components Management Panel
+function ComponentsPanel({ showStatusMessage }) {
+  const { 
+    components, 
+    loading, 
+    error, 
+    fetchComponents, 
+    addComponent, 
+    updateComponent, 
+    removeComponent,
+    toggleComponent 
+  } = useComponents();
 
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [formData, setFormData] = useState({
-    username: '',
-    password: '',
-    confirmPassword: ''
-  });
-  const [passwordData, setPasswordData] = useState({
-    newPassword: '',
-    confirmPassword: ''
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingComponent, setEditingComponent] = useState(null);
+
+  const [newComponent, setNewComponent] = useState({
+    name: '',
+    value: '',
+    description: '',
+    enabled: true
   });
 
-  useEffect(() => {
-    refreshUsers();
-  }, []); // Empty dependency array to run only once on mount
-
-  const handleCreateUser = async () => {
-    if (!formData.username || !formData.password) {
-      showStatusMessage('Please fill in all fields', true);
-      return;
-    }
+  const handleAddComponent = async (e) => {
+    e.preventDefault();
     
-    if (formData.password !== formData.confirmPassword) {
-      showStatusMessage('Passwords do not match', true);
-      return;
-    }
-    
-    if (formData.password.length < 6) {
-      showStatusMessage('Password must be at least 6 characters long', true);
+    if (!newComponent.name || !newComponent.value) {
+      showStatusMessage("Name and Value are required fields", true);
       return;
     }
 
-    try {
-      await createUser(formData.username, formData.password);
-      setFormData({ username: '', password: '', confirmPassword: '' });
-      setShowCreateForm(false);
-      showStatusMessage('User created successfully');
-      if (onUserAction) onUserAction(() => {}); // Mark as edited
-      markConfigAsEdited("user_management");
-    } catch (error) {
-      showStatusMessage(`Error creating user: ${error.message}`, true);
+    // Check if component with same value already exists
+    if (components.some(comp => comp.value === newComponent.value)) {
+      showStatusMessage("A component with this value already exists", true);
+      return;
+    }
+
+    const result = await addComponent(newComponent);
+    if (result) {
+      showStatusMessage(`Component "${newComponent.name}" added successfully`);
+      setNewComponent({ name: '', value: '', description: '', enabled: true });
+      setShowAddForm(false);
+    } else {
+      showStatusMessage("Error adding component", true);
     }
   };
 
-  const handleChangePassword = async () => {
-    if (!passwordData.newPassword || !passwordData.confirmPassword) {
-      showStatusMessage('Please fill in all password fields', true);
-      return;
-    }
-    
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      showStatusMessage('New passwords do not match', true);
-      return;
-    }
-    
-    if (passwordData.newPassword.length < 6) {
-      showStatusMessage('Password must be at least 6 characters long', true);
-      return;
-    }
-
-    try {
-      await changePassword(selectedUser, passwordData.newPassword);
-      setPasswordData({ newPassword: '', confirmPassword: '' });
-      setShowPasswordModal(false);
-      setSelectedUser(null);
-      showStatusMessage('Password changed successfully');
-    } catch (error) {
-      showStatusMessage(`Error changing password: ${error.message}`, true);
+  const handleUpdateComponent = async (componentId, updates) => {
+    const success = await updateComponent(componentId, updates);
+    if (success) {
+      showStatusMessage("Component updated successfully");
+      setEditingComponent(null);
+    } else {
+      showStatusMessage("Error updating component", true);
     }
   };
 
-  const handleToggleStatus = async (username) => {
-    if (username === currentUser?.username) {
-      showStatusMessage('You cannot disable your own account', true);
+  const handleRemoveComponent = async (componentId, componentName) => {
+    if (!window.confirm(`Are you sure you want to remove the component "${componentName}"?`)) {
       return;
     }
-    
-    try {
-      // First toggle the user status
-      await toggleUserStatus(username);
-      showStatusMessage('User status updated successfully');
-      
-      // If it's the admin user, also update the configuration to match
-      if (username === 'admin' && updateConfig) {
-        // Get the updated user status
-        const userApiService = await import("../services/userApi");
-        const updatedUsers = await userApiService.default.getUsers();
-        const adminUser = updatedUsers.find(user => user.username === 'admin');
-        
-        if (adminUser) {
-          // Update config to match the new user status
-          // If user is now inactive, set admin_user_disabled to true
-          // If user is now active, set admin_user_disabled to false
-          const configValue = !adminUser.is_active;
-          
-          await updateConfig({
-            security: { admin_user_disabled: configValue }
-          });
-          
-          console.log(`Admin user config updated: admin_user_disabled = ${configValue}`);
-        }
-      }
-      
-      // Reload config to sync with admin security panel
-      if (username === 'admin' && reloadConfig) {
-        await reloadConfig();
-      }
-    } catch (error) {
-      showStatusMessage(`Error updating user status: ${error.message}`, true);
+
+    const success = await removeComponent(componentId);
+    if (success) {
+      showStatusMessage(`Component "${componentName}" removed successfully`);
+    } else {
+      showStatusMessage("Error removing component", true);
     }
   };
 
-  const handleDeleteUser = async (username) => {
-    if (username === currentUser?.username) {
-      showStatusMessage('You cannot delete your own account', true);
-      return;
-    }
-    
-    if (!confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      await deleteUser(username);
-      showStatusMessage('User deleted successfully');
-    } catch (error) {
-      showStatusMessage(`Error deleting user: ${error.message}`, true);
+  const handleToggleComponent = async (componentId) => {
+    const success = await toggleComponent(componentId);
+    if (success) {
+      showStatusMessage("Component status toggled successfully");
+    } else {
+      showStatusMessage("Error toggling component status", true);
     }
   };
 
-  if (isLoading) {
+  const handleEditSubmit = (e) => {
+    e.preventDefault();
+    if (editingComponent) {
+      handleUpdateComponent(editingComponent.id, editingComponent);
+    }
+  };
+
+  if (loading) {
     return (
-      <div className="flex justify-center items-center py-8">
-        <div className="text-gray-500">Loading users...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded p-4">
-        <div className="text-red-800">Error loading users: {error}</div>
-        <button
-          onClick={refreshUsers}
-          className="mt-2 text-sm bg-red-100 text-red-800 px-3 py-1 rounded hover:bg-red-200"
-        >
-          Retry
-        </button>
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="text-center">Loading components...</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Create User Section */}
-      <div className="border-b pb-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">Create New User</h3>
-          <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="bg-kyndryl-orange text-white px-4 py-2 rounded hover:bg-orange-600"
-          >
-            {showCreateForm ? 'Cancel' : 'Add User'}
-          </button>
+    <div className="bg-white p-6 rounded-lg shadow-md space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-xl font-bold text-kyndryl-orange">Component Management</h2>
+          <p className="text-gray-600 text-sm mt-1">
+            Manage components used in prediction matching and test matching
+          </p>
         </div>
-
-        {showCreateForm && (
-          <div className="space-y-4 bg-gray-50 p-4 rounded">
-            <div>
-              <label className="block font-semibold mb-1">Username</label>
-              <input
-                type="text"
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                className="w-full border border-gray-300 rounded px-3 py-2"
-                placeholder="Enter username"
-              />
-            </div>
-            
-            <div>
-              <label className="block font-semibold mb-1">Password</label>
-              <input
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full border border-gray-300 rounded px-3 py-2"
-                placeholder="Enter password (min 6 characters)"
-              />
-            </div>
-            
-            <div>
-              <label className="block font-semibold mb-1">Confirm Password</label>
-              <input
-                type="password"
-                value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                className="w-full border border-gray-300 rounded px-3 py-2"
-                placeholder="Confirm password"
-              />
-            </div>
-            
-            <button
-              onClick={handleCreateUser}
-              className="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-            >
-              Create User
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Users List Section */}
-      <div>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">Existing Users</h3>
+        <div className="flex gap-2">
           <button
-            onClick={refreshUsers}
-            className="text-sm bg-gray-200 text-black px-3 py-1 rounded hover:bg-gray-300"
+            onClick={fetchComponents}
+            className="bg-gray-200 text-black px-4 py-2 rounded hover:bg-gray-300"
           >
             Refresh
           </button>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="bg-kyndryl-orange text-white px-4 py-2 rounded hover:bg-orange-600"
+          >
+            {showAddForm ? 'Cancel' : 'Add Component'}
+          </button>
         </div>
+      </div>
 
-        {users.length === 0 ? (
-          <div className="text-center py-4 text-gray-500">No users found</div>
-        ) : (
-          <div className="space-y-3">
-            {users.map((user) => (
-              <div
-                key={user.username}
-                className={`p-4 border rounded ${
-                  user.is_default ? 'bg-blue-50 border-blue-200' : 
-                  user.is_active === false ? 'bg-red-50 border-red-200' : 'bg-gray-50'
-                }`}
+      {error && (
+        <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-2 rounded">
+          Warning: {error}. Using fallback components.
+        </div>
+      )}
+
+      {/* Add Component Form */}
+      {showAddForm && (
+        <div className="bg-gray-50 border rounded p-4">
+          <h3 className="text-lg font-semibold text-kyndryl-orange mb-4">Add New Component</h3>
+          <form onSubmit={handleAddComponent} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-medium mb-1">Name *</label>
+                <input
+                  type="text"
+                  value={newComponent.name}
+                  onChange={(e) => setNewComponent(prev => ({ ...prev, name: e.target.value }))
+                  }
+                  className="w-full border rounded px-3 py-2"
+                  placeholder="e.g., Windows Server"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block font-medium mb-1">Value *</label>
+                <input
+                  type="text"
+                  value={newComponent.value}
+                  onChange={(e) => setNewComponent(prev => ({ ...prev, value: e.target.value }))
+                  }
+                  className="w-full border rounded px-3 py-2"
+                  placeholder="e.g., windows-server"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block font-medium mb-1">Description</label>
+              <input
+                type="text"
+                value={newComponent.description}
+                onChange={(e) => setNewComponent(prev => ({ ...prev, description: e.target.value }))
+                }
+                className="w-full border rounded px-3 py-2"
+                placeholder="Brief description of the component"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="newEnabled"
+                checked={newComponent.enabled}
+                onChange={(e) => setNewComponent(prev => ({ ...prev, enabled: e.target.checked }))
+                }
+                className="rounded"
+              />
+              <label htmlFor="newEnabled" className="font-medium">Enabled</label>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="bg-kyndryl-orange text-white px-4 py-2 rounded hover:bg-orange-600"
               >
-                <div className="flex justify-between items-center">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium">{user.username}</span>
-                      {user.is_default && (
-                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-medium">
-                          Default Admin
+                Add Component
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
+                className="bg-gray-200 text-black px-4 py-2 rounded hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Components List */}
+      <div className="border rounded-lg overflow-hidden">
+        <div className="bg-gray-50 p-4 border-b">
+          <h3 className="text-lg font-semibold text-gray-800">
+            Current Components ({components.length})
+          </h3>
+        </div>
+        
+        {components.length === 0 ? (
+          <div className="p-4 text-center text-gray-600">
+            No components found. Add some components to get started.
+          </div>
+        ) : (
+          <div className="divide-y">
+            {components.map((component) => (
+              <div key={component.id} className="p-4">
+                {editingComponent?.id === component.id ? (
+                  /* Edit Form */
+                  <form onSubmit={handleEditSubmit} className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-medium mb-1">Name</label>
+                        <input
+                          type="text"
+                          value={editingComponent.name}
+                          onChange={(e) => setEditingComponent(prev => ({ ...prev, name: e.target.value }))
+                          }
+                          className="w-full border rounded px-2 py-1"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-medium mb-1">Value</label>
+                        <input
+                          type="text"
+                          value={editingComponent.value}
+                          onChange={(e) => setEditingComponent(prev => ({ ...prev, value: e.target.value }))
+                          }
+                          className="w-full border rounded px-2 py-1"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block font-medium mb-1">Description</label>
+                      <input
+                        type="text"
+                        value={editingComponent.description || ''}
+                        onChange={(e) => setEditingComponent(prev => ({ ...prev, description: e.target.value }))
+                        }
+                        className="w-full border rounded px-2 py-1"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id={`edit-enabled-${component.id}`}
+                        checked={editingComponent.enabled}
+                        onChange={(e) => setEditingComponent(prev => ({ ...prev, enabled: e.target.checked }))
+                        }
+                        className="rounded"
+                      />
+                      <label htmlFor={`edit-enabled-${component.id}`} className="font-medium">Enabled</label>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        className="bg-kyndryl-orange text-white px-3 py-1 rounded text-sm hover:bg-orange-600"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingComponent(null)}
+                        className="bg-gray-200 text-black px-3 py-1 rounded text-sm hover:bg-gray-300"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  /* Display Component */
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold text-lg">{component.name}</h4>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          component.enabled 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {component.enabled ? 'Enabled' : 'Disabled'}
                         </span>
-                      )}
-                      {user.is_active === false && (
-                        <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded font-medium">
-                          Disabled
-                        </span>
-                      )}
-                      {user.username === currentUser?.username && (
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-medium">
-                          Current User
-                        </span>
+                      </div>
+                      <div className="text-sm text-gray-600 mb-1">
+                        <strong>Value:</strong> {component.value}
+                      </div>
+                      {component.description && (
+                        <div className="text-sm text-gray-600">
+                          <strong>Description:</strong> {component.description}
+                        </div>
                       )}
                     </div>
-                    <div className="text-xs text-gray-500">
-                      Created: {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
+                    <div className="flex gap-2 ml-4">
+                      <button
+                        onClick={() => handleToggleComponent(component.id)}
+                        className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                          component.enabled
+                            ? 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200'
+                            : 'bg-green-100 text-green-800 border border-green-300 hover:bg-green-200'
+                        }`}
+                      >
+                        {component.enabled ? 'Disable' : 'Enable'}
+                      </button>
+                      <button
+                        onClick={() => setEditingComponent({ ...component })}
+                        className="bg-kyndryl-orange text-white px-3 py-1 rounded text-sm hover:bg-orange-600"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleRemoveComponent(component.id, component.name)}
+                        className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                      >
+                        Remove
+                      </button>
                     </div>
                   </div>
-                  
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setSelectedUser(user.username);
-                        setShowPasswordModal(true);
-                      }}
-                      className="px-3 py-1 rounded text-xs bg-blue-600 text-white hover:bg-blue-700"
-                    >
-                      Change Password
-                    </button>
-                    
-                    <button
-                      onClick={() => handleToggleStatus(user.username)}
-                      disabled={user.username === currentUser?.username}
-                      className={`px-3 py-1 rounded text-xs ${
-                        user.username === currentUser?.username
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                          : user.is_active === false
-                          ? 'bg-green-600 text-white hover:bg-green-700'
-                          : 'bg-yellow-600 text-white hover:bg-yellow-700'
-                      }`}
-                    >
-                      {user.is_active === false ? 'Enable' : 'Disable'}
-                    </button>
-                    
-                    <button
-                      onClick={() => handleDeleteUser(user.username)}
-                      disabled={user.is_default || user.username === currentUser?.username}
-                      className={`px-3 py-1 rounded text-xs ${
-                        user.is_default || user.username === currentUser?.username
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                          : 'bg-red-600 text-white hover:bg-red-700'
-                      }`}
-                    >
-                      {user.is_default ? 'Protected' : 'Delete'}
-                    </button>
-                  </div>
-                </div>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Password Change Modal */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">
-              Change Password for: {selectedUser}
-            </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block font-semibold mb-1">New Password</label>
-                <input
-                  type="password"
-                  value={passwordData.newPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                  placeholder="Enter new password (min 6 characters)"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold mb-1">Confirm New Password</label>
-                <input
-                  type="password"
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                  placeholder="Confirm new password"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2 mt-6">
-              <button
-                onClick={handleChangePassword}
-                className="flex-1 bg-kyndryl-orange text-white px-4 py-2 rounded hover:bg-orange-600"
-              >
-                Change Password
-              </button>
-              <button
-                onClick={() => {
-                  setShowPasswordModal(false);
-                  setSelectedUser(null);
-                  setPasswordData({ newPassword: '', confirmPassword: '' });
-                }}
-                className="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Info Section */}
+      <div className="bg-blue-50 border border-blue-200 rounded p-4">
+        <h4 className="font-semibold text-blue-800 mb-2">ℹ️ Information</h4>
+        <ul className="text-sm text-blue-700 space-y-1">
+          <li>• Components are used in prediction matching and test matching pages</li>
+          <li>• Only enabled components will be available in dropdown selectors</li>
+          <li>• Component values should be unique and use lowercase with hyphens</li>
+          <li>• Changes take effect immediately across the application</li>
+        </ul>
+      </div>
     </div>
   );
 }

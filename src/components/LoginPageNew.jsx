@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth.jsx';
+import { Link } from 'react-router-dom';
 import kyndrylLogo from '../assets/kyndryl_logo.svg';
 
 const LoginPageNew = ({ onLoginSuccess }) => {
@@ -54,11 +55,15 @@ const LoginPageNew = ({ onLoginSuccess }) => {
         sessionStorage.removeItem('returnUrl');
         // Redirect to the stored URL
         window.location.href = returnUrl;
+        return;
       }
       
       // Call success callback if provided
       if (onLoginSuccess) {
         onLoginSuccess(result.user);
+      } else {
+        // If no callback is provided (direct route usage), redirect to home
+        window.location.href = '/';
       }
     }
     // Error handling is done by the useAuth hook
@@ -183,6 +188,15 @@ const LoginPageNew = ({ onLoginSuccess }) => {
                 </>
               )}
             </button>
+          </div>
+
+          <div className="text-center">
+            <Link 
+              to="/help" 
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium hover:underline transition-colors duration-200"
+            >
+              Need Help?
+            </Link>
           </div>
 
           {/* Debug access hint - only show if debug is public */}

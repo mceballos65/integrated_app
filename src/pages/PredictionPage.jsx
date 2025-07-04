@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
+import { NavLink } from "react-router-dom";
 import useConfigStore from "../store";
+import { useAuth } from "../hooks/useAuth.jsx";
+import ComponentSelector from "../components/ComponentSelector.jsx";
 
 const defaultItem = {
   phrase: "",
@@ -11,10 +14,36 @@ const defaultItem = {
 
 export default function PredictionPage() {
   const { config } = useConfigStore();
+  const { securityWarning } = useAuth();
+  
+  // Security check - same as LogsPage
+  const adminUserDisabled = config?.security?.admin_user_disabled || false;
+  
+  // If there are security warnings, block access to this critical page
+  if (securityWarning) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-red-100 border border-red-300 rounded-lg p-6 text-center">
+            <h2 className="text-2xl font-bold text-red-700 mb-4">⚠️ Security Warning</h2>
+            <p className="text-red-600 mb-4">
+              The prediction page is currently unavailable due to security issues. Please review security settings to ensure the default admin user is disabled and debug access is properly configured.
+            </p>
+            <NavLink 
+              to="/config?from=security" 
+              className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Go to Configuration
+            </NavLink>
+          </div>
+        </div>
+      </div>
+    );
+  }
   
   // Get values directly from config
   const predictionUrl = config?.app?.prediction_url || "";
-  const accountCode = config?.app?.account_code || "ACM";
+  const accountCode = config?.app?.account_code || "";
   
   console.log("PredictionPage - Config values:", { predictionUrl, accountCode, config });
   const [items, setItems] = useState([]);
@@ -209,16 +238,11 @@ export default function PredictionPage() {
         <div key={key}>
           <label className="block font-medium capitalize">{key.replace(/_/g, " ")}</label>
           {key === "component" ? (
-            <select
+            <ComponentSelector
               value={item[key]}
               onChange={(e) => onChange(key, e.target.value)}
               className="w-full border rounded px-2 py-1"
-            >
-              <option value="">-- Select --</option>
-              <option value="windows">windows</option>
-              <option value="linux">linux</option>
-              <option value="network">network</option>
-            </select>
+            />
           ) : key === "only_on_component_match" ? (
             <select
               value={item[key] ? "true" : "false"}

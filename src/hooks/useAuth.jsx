@@ -15,8 +15,15 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [securityWarning, setSecurityWarning] = useState(null);
-  const adminUserDisabled = useConfigStore(state => state.adminUserDisabled);
-  const debugRequiresAuth = useConfigStore(state => state.debugRequiresAuth);
+  
+  // Get the complete config and compute security values
+  const { config, configLoaded } = useConfigStore(state => ({
+    config: state.config,
+    configLoaded: state.configLoaded
+  }));
+  
+  const adminUserDisabled = config?.security?.admin_user_disabled || false;
+  const debugRequiresAuth = config?.security?.debug_requires_auth || false;
 
   // Initialize auth state
   useEffect(() => {
@@ -26,18 +33,27 @@ export function AuthProvider({ children }) {
     
     // Check for security warnings
     const debugIsPublic = localStorage.getItem('debugRequiresAuth') !== 'true' && !debugRequiresAuth;
-    const adminActive = currentUser && currentUser.username === 'admin' && !adminUserDisabled;
+    const adminUserEnabled = !adminUserDisabled; // Admin user is enabled when admin_user_disabled is false
     
-    if (adminActive && debugIsPublic) {
-      setSecurityWarning('Multiple security issues: 1) Default administrator account is active. 2) Debug page is publicly accessible. Please review security settings.');
-    } else if (adminActive) {
-      setSecurityWarning('Default administrator account is active. For security reasons, please disable it and create a new administrator account.');
+    console.log('Security check:', {
+      adminUserDisabled,
+      debugRequiresAuth,
+      debugIsPublic,
+      adminUserEnabled,
+      configLoaded,
+      config
+    });
+    
+    if (adminUserEnabled && debugIsPublic) {
+      setSecurityWarning('Multiple security issues: 1) Default administrator account is enabled. 2) Debug page is publicly accessible. Please review security settings.');
+    } else if (adminUserEnabled) {
+      setSecurityWarning('Default administrator account is enabled. For security reasons, please disable it and create a new administrator account.');
     } else if (debugIsPublic) {
       setSecurityWarning('Debug page is publicly accessible. For security reasons, please restrict access to authenticated users only.');
     } else {
       setSecurityWarning(null);
     }
-  }, [adminUserDisabled, debugRequiresAuth]);
+  }, [adminUserDisabled, debugRequiresAuth, configLoaded]);
 
   // Login function
   const login = async (username, password) => {

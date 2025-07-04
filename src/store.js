@@ -4,7 +4,7 @@ import { loadConfig, saveConfig, updateConfig, checkConfigExists } from "./confi
 const defaultConfig = {
   app: {
     prediction_url: "http://localhost:8000",
-    account_code: "ACM"
+    account_code: ""
   },
   logging: {
     file_location: "./app_data/logs/predictions.log",
@@ -38,7 +38,7 @@ const useConfigStore = create((set, get) => ({
     return value;
   },
   get accountCode() { 
-    const value = get().config?.app?.account_code || "ACM";
+    const value = get().config?.app?.account_code || "";
     console.log("accountCode getter:", { config: get().config, value });
     return value;
   },
