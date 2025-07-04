@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException, Request, APIRouter
+from fastapi import FastAPI, HTTPException, Request, APIRouter, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 import numpy as np
@@ -38,11 +38,17 @@ from user_encryption import (
     create_user
 )
 
+# Importar config_handler para los nuevos endpoints
+import config_handler
+
 from config import SIMILARITY_THRESHOLD, ENABLE_LOGGING
 
 setup_logging()
 
 app = FastAPI()
+
+# Nombre de archivo de configuración por defecto
+CONFIG_FILE = "app_config.json"
 
 # Initialize user management system
 print("Initializing user management system...")
@@ -154,7 +160,7 @@ def update_embeddings():
     embeddings = generate_embeddings(data, model)
 
 # Configuration management functions
-CONFIG_FILE_PATH = "config.json"
+CONFIG_FILE_PATH = "app_config.json"
 
 def get_default_config():
     """Returns the default configuration structure"""
@@ -841,31 +847,80 @@ def save_config_endpoint(config_request: ConfigRequest):
         raise HTTPException(status_code=500, detail=f"Error saving configuration: {str(e)}")
 
 @app.put("/config")
-def update_config(full_config: FullConfig):
-    """Update entire configuration"""
+def put_config(config_data: dict):
+    """Replace entire configuration"""
     try:
-        config_dict = {
-            "app": full_config.app.dict(),
-            "logging": full_config.logging.dict(),
-            "security": full_config.security.dict(),
-            "github": full_config.github.dict(),
-            "last_modified": datetime.now().isoformat()
-        }
+        saved_config = save_config(config_data)
         
-        if save_config(config_dict):
-            return {
-                "message": "Configuration updated successfully",
-                "config": config_dict,
-                "timestamp": datetime.now().isoformat()
-            }
-        else:
-            raise HTTPException(status_code=500, detail="Failed to update configuration")
+        # Update local disabled matchers
+        if 'disabled_matchers' in config_data:
+            save_disabled_by_matcher(config_data['disabled_matchers'])
+            
+        return {
+            "config": saved_config,
+            "message": "Configuration updated successfully",
+            "timestamp": datetime.now().isoformat()
+        }
     
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating configuration: {str(e)}")
 
+# Nuevos endpoints para el manejo de configuración con app_config.json
+
+@app.get("/api/config/exists")
+async def check_config_exists(file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
+    """Verifica si existe un archivo de configuración específico"""
+    try:
+        exists = config_handler.config_exists(file)
+        return {"exists": exists}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking config file: {str(e)}")
+
+@app.get("/api/config/load")
+async def load_config_endpoint(file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
+    """Carga la configuración desde un archivo específico"""
+    try:
+        config = config_handler.load_config(file)
+        is_default = not config_handler.config_exists(file)
+        return {"config": config, "is_default": is_default}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading config: {str(e)}")
+
+@app.post("/api/config/save")
+async def save_config_endpoint(config_update: Dict[str, Any], file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
+    """Guarda la configuración completa en un archivo específico"""
+    try:
+        config = config_handler.save_config(config_update, file)
+        return {"config": config}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving config: {str(e)}")
+
+@app.patch("/api/config/update")
+async def update_config_endpoint(config_update: Dict[str, Any], file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
+    """Actualiza parcialmente la configuración existente"""
+    try:
+        config = config_handler.update_config(config_update, file)
+        return {"config": config}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating config: {str(e)}")
+
+@app.put("/api/config/replace")
+async def replace_config_endpoint(config_update: Dict[str, Any], file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
+    """Reemplaza completamente la configuración existente"""
+    try:
+        config = config_handler.save_config(config_update, file)
+        return {"config": config}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error replacing config: {str(e)}")
+
+@app.delete("/api/config/delete")
+async def delete_config_endpoint(file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
+    """Elimina un archivo de configuración específico"""
+    try:
+        success = config_handler.delete_config(file)
+        return {"success": success}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting config: {str(e)}")
 # ========================================
 # APPLICATION LOGGING ENDPOINTS
 # ========================================
@@ -1223,3 +1278,390 @@ def health_check(http_request: Request):
         )
     
     return {"status": "ok"}
+
+@app.post("/api/config/mark-edited")
+async def mark_config_as_edited(request: Request, file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
+    """Marca una sección de configuración como editada"""
+    try:
+        data = await request.json()
+        section = data.get("section")
+        
+        if not section:
+            raise HTTPException(status_code=400, detail="Section parameter is required")
+            
+        # Cargar configuración actual
+        config = config_handler.load_config(file)
+        
+        # Verificar que existe la sección de edited_configs
+        if "edited_configs" not in config:
+            config["edited_configs"] = {
+                "backend": False,
+                "app": False,
+                "security": False,
+                "github": False,
+                "logging": False,
+                "user_management": False
+            }
+            
+        # Marcar la sección como editada
+        if section in config["edited_configs"]:
+            config["edited_configs"][section] = True
+            
+            # Guardar la configuración actualizada
+            result = config_handler.save_config(config, file)
+            return {"success": True, "config": result}
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown config section: {section}")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error marking config as edited: {str(e)}")
+
+@app.get("/api/config/edited-status")
+def get_edited_status(file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
+    """Obtiene el estado de edición de todas las secciones de configuración"""
+    try:
+        config = config_handler.load_config(file)
+        
+        # Si no existe la sección de edited_configs, crearla con valores predeterminados
+        if "edited_configs" not in config:
+            config["edited_configs"] = {
+                "backend": False,
+                "app": False,
+                "security": False,
+                "github": False,
+                "logging": False,
+                "user_management": False
+            }
+            # Guardar la configuración actualizada
+            config_handler.save_config(config, file)
+            
+        return {"edited_configs": config["edited_configs"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting edited status: {str(e)}")
+
+# ========================================
+# LOG CLEANUP FUNCTIONALITY
+# ========================================
+
+import time
+import threading
+from datetime import datetime, timedelta
+
+def clean_logs(log_file_path=None, max_entries=None):
+    """
+    Limpia un archivo de log para mantener solo las entradas más recientes
+    según el máximo configurado en app_config.json
+    
+    Args:
+        log_file_path: Ruta al archivo de log (si es None, se toma de la configuración)
+        max_entries: Número máximo de entradas a mantener (si es None, se toma de la configuración)
+        
+    Returns:
+        dict: Información sobre la operación de limpieza
+    """
+    try:
+        # Obtener la configuración actual
+        config = config_handler.load_config(CONFIG_FILE)
+        
+        # Si no se proporcionaron parámetros, usar los valores de la configuración
+        if log_file_path is None:
+            log_file_path = config.get("logging", {}).get("file_location", "./logs/predictions.log")
+        
+        if max_entries is None:
+            max_entries = config.get("logging", {}).get("max_entries", 50000)
+            
+        # Asegurar que max_entries sea un número entero positivo
+        max_entries = max(1, int(max_entries))
+        
+        # Verificar que el archivo existe
+        if not os.path.exists(log_file_path):
+            return {
+                "success": False, 
+                "message": f"Log file not found: {log_file_path}",
+                "entries_removed": 0,
+                "entries_kept": 0
+            }
+        
+        # Leer todas las líneas del archivo
+        with open(log_file_path, "r", encoding="utf-8") as f:
+            all_lines = f.readlines()
+            
+        total_entries = len(all_lines)
+        
+        # Si el archivo tiene menos entradas que el máximo, no hay que hacer nada
+        if total_entries <= max_entries:
+            return {
+                "success": True,
+                "message": f"No cleanup needed. Current entries ({total_entries}) are below max limit ({max_entries})",
+                "entries_removed": 0,
+                "entries_kept": total_entries
+            }
+            
+        # Mantener solo las últimas 'max_entries' líneas
+        entries_to_keep = all_lines[-max_entries:]
+        entries_removed = total_entries - len(entries_to_keep)
+        
+        # Escribir las líneas a mantener de vuelta al archivo
+        with open(log_file_path, "w", encoding="utf-8") as f:
+            f.writelines(entries_to_keep)
+            
+        return {
+            "success": True,
+            "message": f"Log cleanup successful. Removed {entries_removed} old entries, kept {len(entries_to_keep)} recent entries",
+            "entries_removed": entries_removed,
+            "entries_kept": len(entries_to_keep),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error cleaning logs: {str(e)}",
+            "error": str(e)
+        }
+
+# Variables para llevar registro de la limpieza de logs
+last_log_cleanup = datetime.now()
+cleanup_interval = timedelta(hours=24)  # Limpiar cada 24 horas
+cleanup_thread = None
+cleanup_thread_running = False  # Flag to control thread execution
+
+# Función que se ejecuta en un hilo separado para limpiar logs periódicamente
+def periodic_log_cleanup():
+    global last_log_cleanup, cleanup_thread_running
+    
+    while cleanup_thread_running:
+        try:
+            # Verificar si han pasado 24 horas desde la última limpieza
+            now = datetime.now()
+            if now - last_log_cleanup >= cleanup_interval:
+                print(f"[{now.isoformat()}] Running scheduled log cleanup...")
+                config = config_handler.load_config(CONFIG_FILE)
+                log_file_path = config.get("logging", {}).get("file_location", "./logs/predictions.log")
+                max_entries = config.get("logging", {}).get("max_entries", 50000)
+                result = clean_logs(log_file_path, max_entries)
+                print(f"[{now.isoformat()}] Cleanup result: {result['message']}")
+                last_log_cleanup = now
+                
+            # Esperar 1 hora antes de volver a verificar
+            time.sleep(3600)  # 3600 segundos = 1 hora
+            
+        except Exception as e:
+            print(f"Error in periodic log cleanup: {str(e)}")
+            time.sleep(3600)  # En caso de error, esperar una hora e intentar de nuevo
+
+@app.post("/api/logs/cleanup")
+async def cleanup_logs_endpoint(request: Request):
+    """
+    Endpoint para limpiar los logs basado en la configuración de max_entries
+    """
+    try:
+        # Obtener la configuración actual
+        config = config_handler.load_config(CONFIG_FILE)
+        log_file_path = config.get("logging", {}).get("file_location", "./logs/predictions.log")
+        max_entries = config.get("logging", {}).get("max_entries", 50000)
+        
+        # Realizar la limpieza
+        result = clean_logs(log_file_path, max_entries)
+        
+        # Registrar la acción
+        if result["success"]:
+            write_app_log(
+                timestamp=datetime.now().isoformat(),
+                level="INFO",
+                category="LOG_MAINTENANCE",
+                message=f"Manual log cleanup executed. {result['message']}",
+                details={
+                    "removed": result["entries_removed"],
+                    "kept": result["entries_kept"],
+                    "max_entries": max_entries,
+                    "file_path": log_file_path
+                },
+                user="system"
+            )
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during log cleanup: {str(e)}")
+
+# Endpoint para actualizar la configuración de logs y aplicar los cambios inmediatamente
+@app.post("/api/config/logs")
+async def update_logs_config(request: Request):
+    """
+    Actualiza la configuración de logs y aplica los cambios inmediatamente
+    """
+    try:
+        # Obtener los datos JSON del cuerpo de la solicitud
+        data = await request.json()
+        
+        # Validar los datos
+        file_location = data.get("file_location")
+        max_entries = data.get("max_entries")
+        
+        if file_location is None and max_entries is None:
+            raise HTTPException(status_code=400, detail="At least one setting (file_location or max_entries) must be provided")
+        
+        # Construir el objeto de actualización
+        config_update = {"logging": {}}
+        
+        if file_location is not None:
+            config_update["logging"]["file_location"] = file_location
+            
+        if max_entries is not None:
+            try:
+                max_entries = int(max_entries)
+                if max_entries <= 0:
+                    raise ValueError("max_entries must be a positive integer")
+                config_update["logging"]["max_entries"] = max_entries
+            except ValueError:
+                raise HTTPException(status_code=400, detail="max_entries must be a valid positive integer")
+        
+        # Actualizar la configuración
+        updated_config = config_handler.update_config(config_update, CONFIG_FILE)
+        
+        # Marcar la configuración de logs como editada
+        if "edited_configs" not in updated_config:
+            updated_config["edited_configs"] = {}
+        updated_config["edited_configs"]["logging"] = True
+        config_handler.save_config(updated_config, CONFIG_FILE)
+        
+        # Aplicar inmediatamente los cambios si se actualizó max_entries
+        cleanup_result = None
+        if max_entries is not None:
+            cleanup_result = clean_logs(
+                log_file_path=updated_config.get("logging", {}).get("file_location"),
+                max_entries=updated_config.get("logging", {}).get("max_entries")
+            )
+            
+            # Registrar la acción
+            if cleanup_result and cleanup_result["success"]:
+                write_app_log(
+                    timestamp=datetime.now().isoformat(),
+                    level="INFO",
+                    category="LOG_CONFIG",
+                    message=f"Log settings updated and cleanup performed. {cleanup_result.get('message', '')}",
+                    details={
+                        "file_location": updated_config.get("logging", {}).get("file_location"),
+                        "max_entries": updated_config.get("logging", {}).get("max_entries"),
+                        "removed": cleanup_result.get("entries_removed", 0),
+                        "kept": cleanup_result.get("entries_kept", 0)
+                    }
+                )
+        
+        return {
+            "success": True,
+            "config": updated_config,
+            "cleanup_result": cleanup_result,
+            "message": "Log configuration updated successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating log configuration: {str(e)}")
+
+# Limpiar logs al iniciar la aplicación
+@app.on_event("startup")
+async def startup_event():
+    """
+    Evento ejecutado al iniciar la aplicación
+    - Limpia los logs según la configuración actual
+    - Inicia el hilo de limpieza periódica
+    """
+    try:
+        print(f"[{datetime.now().isoformat()}] Application startup - Cleaning logs...")
+        config = config_handler.load_config(CONFIG_FILE)
+        log_file_path = config.get("logging", {}).get("file_location", "./logs/predictions.log")
+        max_entries = config.get("logging", {}).get("max_entries", 50000)
+        
+        result = clean_logs(log_file_path, max_entries)
+        print(f"[{datetime.now().isoformat()}] Initial log cleanup result: {result['message']}")
+        
+        # Iniciar el hilo de limpieza periódica
+        global last_log_cleanup, cleanup_thread, cleanup_thread_running
+        last_log_cleanup = datetime.now()  # Registrar el momento de la primera limpieza
+        
+        # Asegurarse de que no haya un hilo ya en ejecución
+        if cleanup_thread is None or not cleanup_thread.is_alive():
+            cleanup_thread_running = True
+            cleanup_thread = threading.Thread(target=periodic_log_cleanup, daemon=True)
+            cleanup_thread.start()
+            print(f"[{datetime.now().isoformat()}] Log cleanup thread started")
+        
+    except Exception as e:
+        print(f"[{datetime.now().isoformat()}] Error during startup log cleanup: {str(e)}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """
+    Evento ejecutado al detener la aplicación
+    - Detiene el hilo de limpieza periódica
+    """
+    try:
+        global cleanup_thread_running, cleanup_thread
+        
+        # Detener el hilo de limpieza
+        if cleanup_thread and cleanup_thread.is_alive():
+            print(f"[{datetime.now().isoformat()}] Stopping log cleanup thread...")
+            cleanup_thread_running = False
+            
+            # Esperar hasta 5 segundos a que el hilo termine
+            cleanup_thread.join(timeout=5.0)
+            
+            if cleanup_thread.is_alive():
+                print(f"[{datetime.now().isoformat()}] Warning: Log cleanup thread did not terminate gracefully")
+            else:
+                print(f"[{datetime.now().isoformat()}] Log cleanup thread stopped successfully")
+        
+    except Exception as e:
+        print(f"[{datetime.now().isoformat()}] Error during application shutdown: {str(e)}")
+
+@app.get("/api/logs/cleanup/status")
+async def get_log_cleanup_status():
+    """
+    Obtener información sobre el estado de la limpieza de logs
+    """
+    global last_log_cleanup, cleanup_thread, cleanup_thread_running
+    
+    try:
+        # Obtener la configuración actual
+        config = config_handler.load_config(CONFIG_FILE)
+        log_file_path = config.get("logging", {}).get("file_location", "./logs/predictions.log")
+        max_entries = config.get("logging", {}).get("max_entries", 50000)
+        
+        # Verificar si el archivo existe
+        file_exists = os.path.exists(log_file_path)
+        file_size = 0
+        line_count = 0
+        
+        if file_exists:
+            file_size = os.path.getsize(log_file_path)
+            
+            # Contar líneas sin cargar todo el archivo en memoria
+            with open(log_file_path, 'r', encoding='utf-8') as f:
+                for _ in f:
+                    line_count += 1
+        
+        next_cleanup = last_log_cleanup + cleanup_interval
+        
+        # Verificar el estado del hilo de limpieza
+        thread_status = "running" if cleanup_thread and cleanup_thread.is_alive() else "stopped"
+        
+        return {
+            "last_cleanup": last_log_cleanup.isoformat(),
+            "next_scheduled_cleanup": next_cleanup.isoformat(),
+            "cleanup_interval_hours": cleanup_interval.total_seconds() / 3600,
+            "time_until_next_cleanup": str(next_cleanup - datetime.now()),
+            "cleanup_thread_status": thread_status,
+            "log_config": {
+                "file_path": log_file_path,
+                "max_entries": max_entries,
+                "file_exists": file_exists,
+                "file_size_bytes": file_size,
+                "current_entries": line_count
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving log cleanup status: {str(e)}")

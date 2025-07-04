@@ -1,0 +1,109 @@
+"""
+Módulo para manejar la configuración de la aplicación
+Guarda y carga la configuración desde un archivo JSON
+"""
+
+import json
+import os
+from typing import Dict, Any, Optional
+
+# Nombre del archivo de configuración por defecto
+DEFAULT_CONFIG_FILENAME = "app_config.json"
+
+# Configuración por defecto
+DEFAULT_CONFIG = {
+    "app": {
+        "prediction_url": "http://localhost:8000",
+        "account_code": "ACM"
+    },
+    "logging": {
+        "file_location": "./logs/predictions.log",
+        "max_entries": 50000
+    },
+    "security": {
+        "admin_user_disabled": False,
+        "debug_requires_auth": False,
+        "admin_username": "",
+        "admin_password_hash": ""
+    },
+    "github": {
+        "token": "",
+        "repo_url": "",
+        "branch": "main"
+    },
+    # Registro de configuraciones que han sido editadas
+    "edited_configs": {
+        "backend": False,
+        "app": False,
+        "security": False,
+        "github": False,
+        "logging": False,
+        "user_management": False
+    }
+}
+
+def get_config_path(filename: str) -> str:
+    """Obtiene la ruta absoluta al archivo de configuración"""
+    return os.path.abspath(filename)
+
+def config_exists(filename: str) -> bool:
+    """Verifica si el archivo de configuración existe"""
+    config_path = get_config_path(filename)
+    return os.path.exists(config_path)
+
+def load_config(filename: str) -> Dict[str, Any]:
+    """Carga la configuración desde un archivo JSON"""
+    config_path = get_config_path(filename)
+    if not config_exists(filename):
+        return DEFAULT_CONFIG
+    
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        return config
+    except Exception as e:
+        print(f"Error loading config from {filename}: {str(e)}")
+        return DEFAULT_CONFIG
+
+def save_config(config: Dict[str, Any], filename: str) -> Dict[str, Any]:
+    """Guarda la configuración en un archivo JSON"""
+    config_path = get_config_path(filename)
+    try:
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=2)
+        return config
+    except Exception as e:
+        print(f"Error saving config to {filename}: {str(e)}")
+        raise e
+
+def update_config(config_update: Dict[str, Any], filename: str) -> Dict[str, Any]:
+    """Actualiza parcialmente la configuración existente"""
+    # Cargar configuración actual
+    current_config = load_config(filename)
+    
+    # Función recursiva para actualizar diccionarios anidados
+    def deep_update(source, updates):
+        for key, value in updates.items():
+            if isinstance(value, dict) and key in source and isinstance(source[key], dict):
+                source[key] = deep_update(source[key], value)
+            else:
+                source[key] = value
+        return source
+    
+    # Aplicar la actualización
+    updated_config = deep_update(current_config, config_update)
+    
+    # Guardar la configuración actualizada
+    return save_config(updated_config, filename)
+
+def delete_config(filename: str) -> bool:
+    """Elimina el archivo de configuración si existe"""
+    config_path = get_config_path(filename)
+    if os.path.exists(config_path):
+        try:
+            os.remove(config_path)
+            return True
+        except Exception as e:
+            print(f"Error deleting config file {filename}: {str(e)}")
+            return False
+    return True  # Si no existe, consideramos que la operación fue exitosa

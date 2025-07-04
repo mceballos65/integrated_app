@@ -1,1 +1,5 @@
 node_modules
+.venv
+venv
+__pycache__
+all-mpnet-base-v2

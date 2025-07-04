@@ -38,7 +38,7 @@ function InitialSetupScreen() {
             <img src={kyndrylLogo} alt="Kyndryl Logo" className="h-12" />
           </div>
           
-          <h1 className="text-3xl font-bold text-kyndryl-orange mb-4">🚀 Welcome to Kyndryl IA Event Automation</h1>
+          <h1 className="text-3xl font-bold text-kyndryl-orange mb-4">🚀 Welcome to Kyndryl AI Event Automation</h1>
           <p className="text-gray-600 mb-6">This appears to be your first time running the application. Let's get you set up!</p>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -60,7 +60,7 @@ function InitialSetupScreen() {
             </p>
             <ul className="text-sm text-yellow-700 text-left mt-2 space-y-1">
               <li>• http://localhost:8000 (if running locally)</li>
-              <li>• http://192.168.100.48:8000 (if running on another server)</li>
+              <li>• http://127.0.0.1:8000 (alternative local address)</li>
               <li>• Any other server address where your backend is hosted</li>
             </ul>
           </div>
@@ -123,35 +123,48 @@ function AppContent() {
         // Log app startup
         appLogger.info('APP_STARTUP', 'Application initializing');
         
-        // Check if initial setup has been completed
-        const setupCompleted = isInitialSetupCompleted();
-        console.log("Initial setup completed:", setupCompleted);
-        
-        if (!setupCompleted) {
-          console.log("Initial setup not completed, showing setup screen");
-          appLogger.logSetup('Setup required', 'Initial setup not completed');
-          setIsUnconfigured(true);
-          setAppInitialized(true);
-          return;
-        }
-        
-        // Get the configured backend URL
+        // Get the backend URL (either from permanent config or default)
         const currentBackendUrl = getBackendUrl();
-        console.log("Using configured backend URL:", currentBackendUrl);
-        appLogger.info('APP_STARTUP', 'Using configured backend', { backendUrl: currentBackendUrl });
+        console.log("Attempting to connect to backend URL:", currentBackendUrl);
+        appLogger.info('APP_STARTUP', 'Attempting to connect to backend', { backendUrl: currentBackendUrl });
         
-        // Check if config exists on the configured backend
-        const exists = await checkConfigExists();
-        
-        if (!exists) {
-          appLogger.warn('CONFIG', 'Configuration not found on backend');
-          setIsUnconfigured(true);
-          setAppInitialized(true);
-          return;
+        // First try to check if the backend is available and has config
+        try {
+          const exists = await checkConfigExists();
+          
+          if (!exists) {
+            console.log("Configuration not found on backend, showing setup screen");
+            appLogger.warn('CONFIG', 'Configuration not found on backend');
+            setIsUnconfigured(true);
+            setAppInitialized(true);
+            return;
+          }
+          
+          // Load config from backend
+          const config = await loadConfig();
+          if (config) {
+            appLogger.success('APP_STARTUP', 'Application configuration loaded from backend successfully');
+            setAppInitialized(true);
+            return;
+          }
+        } catch (backendError) {
+          console.warn("Could not connect to backend:", backendError);
+          appLogger.warn('APP_STARTUP', 'Could not connect to backend', { 
+            error: backendError.message,
+            backendUrl: currentBackendUrl 
+          });
+          
+          // Check if initial setup has been completed locally
+          const setupCompleted = isInitialSetupCompleted();
+          if (!setupCompleted) {
+            console.log("Initial setup not completed, showing setup screen");
+            appLogger.logSetup('Setup required', 'Initial setup not completed');
+            setIsUnconfigured(true);
+            setAppInitialized(true);
+            return;
+          }
         }
         
-        // Load config if it exists
-        await loadConfig();
         appLogger.success('APP_STARTUP', 'Application initialized successfully');
         setAppInitialized(true);
       } catch (error) {
@@ -200,8 +213,11 @@ function AppContent() {
       return <DebugPage />;
     }
     
+    // Check both the config store and localStorage to ensure consistency
+    const isDebugRestricted = debugRequiresAuth || localStorage.getItem('debugRequiresAuth') === 'true';
+    
     // If authentication is required and user is not logged in
-    if (debugRequiresAuth && !isLoggedIn) {
+    if (isDebugRestricted && !isLoggedIn) {
       // Store the current URL to redirect back after login
       sessionStorage.setItem('returnUrl', window.location.pathname);
       

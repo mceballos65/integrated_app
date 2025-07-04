@@ -3,7 +3,7 @@ import { loadConfig, saveConfig, updateConfig, checkConfigExists } from "./confi
 
 const defaultConfig = {
   app: {
-    prediction_url: "",
+    prediction_url: "http://localhost:8000",
     account_code: "ACM"
   },
   logging: {
@@ -45,7 +45,12 @@ const useConfigStore = create((set, get) => ({
   get logFileLocation() { return get().config?.logging?.file_location || "./logs/predictions.log"; },
   get maxLogEntries() { return get().config?.logging?.max_entries || 50000; },
   get adminUserDisabled() { return get().config?.security?.admin_user_disabled || false; },
-  get debugRequiresAuth() { return get().config?.security?.debug_requires_auth || false; },
+  get debugRequiresAuth() { 
+    // Check config first, then fall back to localStorage for backward compatibility
+    const configValue = get().config?.security?.debug_requires_auth || false;
+    const localStorageValue = localStorage.getItem('debugRequiresAuth') === 'true';
+    return configValue || localStorageValue; 
+  },
   get adminUsername() { return get().config?.security?.admin_username || ""; },
   get githubToken() { return get().config?.github?.token || ""; },
   get githubRepoUrl() { return get().config?.github?.repo_url || ""; },
@@ -75,6 +80,17 @@ const useConfigStore = create((set, get) => ({
           configExists: !response.is_default,
           loading: false 
         });
+        
+        // Clear any legacy localStorage configuration items to avoid conflicts
+        localStorage.removeItem('kyndryl_app_config');
+        localStorage.removeItem('debugDisabled');
+        
+        // Ensure debugRequiresAuth in localStorage matches backend config
+        if (response.config?.security?.debug_requires_auth !== undefined) {
+          localStorage.setItem('debugRequiresAuth', 
+            response.config.security.debug_requires_auth ? 'true' : 'false');
+        }
+        
         return response.config;
       } else if (response) {
         // Handle case where config is returned directly
@@ -84,6 +100,17 @@ const useConfigStore = create((set, get) => ({
           configExists: true,
           loading: false 
         });
+        
+        // Clear any legacy localStorage configuration items to avoid conflicts
+        localStorage.removeItem('kyndryl_app_config');
+        localStorage.removeItem('debugDisabled');
+        
+        // Ensure debugRequiresAuth in localStorage matches backend config
+        if (response?.security?.debug_requires_auth !== undefined) {
+          localStorage.setItem('debugRequiresAuth', 
+            response.security.debug_requires_auth ? 'true' : 'false');
+        }
+        
         return response;
       } else {
         set({ 

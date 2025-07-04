@@ -3,10 +3,10 @@ Simple FastAPI server for user management only
 This version doesn't include the AI/ML features to avoid dependency issues
 """
 
-from fastapi import FastAPI, HTTPException, Request, APIRouter
+from fastapi import FastAPI, HTTPException, Request, APIRouter, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -23,6 +23,9 @@ from user_encryption import (
     get_all_users,
     create_user
 )
+
+# Importar el módulo de manejo de configuración
+import config_handler
 
 # User management models
 class UserLogin(BaseModel):
@@ -49,6 +52,10 @@ class UserResponse(BaseModel):
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
+
+# Modelos para la configuración
+class ConfigUpdate(BaseModel):
+    config: Dict[str, Any]
 
 # Create FastAPI app
 app = FastAPI(title="User Management API", version="1.0.0")
@@ -288,6 +295,92 @@ async def get_user_info(username: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting user info: {str(e)}")
+
+# Endpoints para manejo de configuración
+
+@app.get("/api/config/exists")
+async def check_config_exists(file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
+    """Verifica si existe un archivo de configuración específico"""
+    try:
+        exists = config_handler.config_exists(file)
+        return {"exists": exists}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking config file: {str(e)}")
+
+@app.get("/api/config/load")
+async def load_config_endpoint(file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
+    """Carga la configuración desde un archivo específico"""
+    try:
+        config = config_handler.load_config(file)
+        is_default = not config_handler.config_exists(file)
+        return {"config": config, "is_default": is_default}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading config: {str(e)}")
+
+@app.post("/api/config/save")
+async def save_config_endpoint(config_update: Dict[str, Any], file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
+    """Guarda la configuración completa en un archivo específico"""
+    try:
+        config = config_handler.save_config(config_update, file)
+        return {"config": config}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving config: {str(e)}")
+
+@app.patch("/api/config/update")
+async def update_config_endpoint(config_update: Dict[str, Any], file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
+    """Actualiza parcialmente la configuración existente"""
+    try:
+        config = config_handler.update_config(config_update, file)
+        return {"config": config}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating config: {str(e)}")
+
+@app.put("/api/config/replace")
+async def replace_config_endpoint(config_update: Dict[str, Any], file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
+    """Reemplaza completamente la configuración existente"""
+    try:
+        config = config_handler.save_config(config_update, file)
+        return {"config": config}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error replacing config: {str(e)}")
+
+@app.delete("/api/config/delete")
+async def delete_config_endpoint(file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
+    """Elimina un archivo de configuración específico"""
+    try:
+        success = config_handler.delete_config(file)
+        return {"success": success}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting config: {str(e)}")
+
+# Endpoints de compatibilidad con la API anterior
+@app.get("/config")
+async def get_config_compat():
+    """Endpoint de compatibilidad para cargar la configuración"""
+    try:
+        config = config_handler.load_config(config_handler.DEFAULT_CONFIG_FILENAME)
+        is_default = not config_handler.config_exists(config_handler.DEFAULT_CONFIG_FILENAME)
+        return {"config": config, "is_default": is_default}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading config: {str(e)}")
+
+@app.post("/config")
+async def post_config_compat(config_update: Dict[str, Any]):
+    """Endpoint de compatibilidad para actualizar la configuración"""
+    try:
+        config = config_handler.update_config(config_update, config_handler.DEFAULT_CONFIG_FILENAME)
+        return {"config": config}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating config: {str(e)}")
+
+@app.put("/config")
+async def put_config_compat(config_update: Dict[str, Any]):
+    """Endpoint de compatibilidad para reemplazar la configuración"""
+    try:
+        config = config_handler.save_config(config_update, config_handler.DEFAULT_CONFIG_FILENAME)
+        return {"config": config}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error replacing config: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import userApiService from '../services/userApi';
+import useConfigStore from '../store';
 
 console.log('🔧 DebugPage.jsx loaded');
 
@@ -12,7 +13,7 @@ const DebugPage = () => {
   const [status, setStatus] = useState('ready');
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const [customUrl, setCustomUrl] = useState('http://192.168.100.48:8000');
+  const [customUrl, setCustomUrl] = useState('http://localhost:8000');
   const [isPageLoaded, setIsPageLoaded] = useState(false);
   const [adminCreationEnabled, setAdminCreationEnabled] = useState(() => {
     // Initialize from localStorage, default to true if not set
@@ -20,12 +21,18 @@ const DebugPage = () => {
     return stored === null ? true : stored === 'true';
   });
   const [debugRequiresAuth, setDebugRequiresAuth] = useState(() => {
-    // Check if debug page requires authentication
+    // Check if debug page requires authentication from localStorage (fallback)
     return localStorage.getItem('debugRequiresAuth') === 'true';
   });
   const [showSecurityWarning, setShowSecurityWarning] = useState(false);
   const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
 
+  // Get debugRequiresAuth from the config store
+  const storeDebugRequiresAuth = useConfigStore(state => state.debugRequiresAuth);
+  const configLoaded = useConfigStore(state => state.configLoaded);
+  const loadConfig = useConfigStore(state => state.loadConfig);
+  
+  // Initial page load
   useEffect(() => {
     console.log('DebugPage loaded');
     setIsPageLoaded(true);
@@ -47,6 +54,45 @@ const DebugPage = () => {
     };
     
     checkAdminExists();
+    
+    // Load config if not already loaded
+    if (!configLoaded) {
+      loadConfig();
+    }
+  }, [configLoaded, loadConfig]);
+  
+  // Sync debugRequiresAuth with the store value when it changes
+  useEffect(() => {
+    if (configLoaded) {
+      console.log('Config loaded, syncing debug settings');
+      // Update local state from store
+      setDebugRequiresAuth(storeDebugRequiresAuth);
+      // Keep localStorage in sync but only as fallback
+      localStorage.setItem('debugRequiresAuth', storeDebugRequiresAuth ? 'true' : 'false');
+    }
+  }, [storeDebugRequiresAuth, configLoaded]);
+  
+  // Effect to check backend availability periodically
+  useEffect(() => {
+    const checkBackendAvailability = async () => {
+      try {
+        const { checkConfigExists } = await import('../configStorage');
+        const exists = await checkConfigExists();
+        if (exists) {
+          console.log("Backend is available and has configuration");
+        }
+      } catch (error) {
+        console.warn("Backend is unavailable:", error.message);
+      }
+    };
+    
+    // Check once on component mount
+    checkBackendAvailability();
+    
+    // Check periodically (every 30 seconds)
+    const intervalId = setInterval(checkBackendAvailability, 30000);
+    
+    return () => clearInterval(intervalId);
   }, []);
 
   const testAPI = async (url = null) => {
@@ -154,32 +200,74 @@ const DebugPage = () => {
     }
   };
   
-  const toggleDebugAccess = () => {
+  const toggleDebugAccess = async () => {
     const newValue = !debugRequiresAuth;
     
     // Show warning if restricting access while not logged in
     if (newValue && !isUserLoggedIn) {
       if (confirm('⚠️ Warning: If you restrict access without being logged in, you will lose access to this page. Continue?')) {
-        localStorage.setItem('debugRequiresAuth', 'true');
-        setDebugRequiresAuth(true);
-        alert('Debug page access is now restricted to authenticated users.');
-        window.location.reload();
+        try {
+          // Update localStorage
+          localStorage.setItem('debugRequiresAuth', 'true');
+          setDebugRequiresAuth(true);
+          
+          // Update backend config
+          const { updateConfig } = await import('../configStorage');
+          await updateConfig({
+            security: { debug_requires_auth: true }
+          });
+          
+          alert('Debug page access is now restricted to authenticated users.');
+          window.location.reload();
+        } catch (error) {
+          console.error('Failed to update debug access setting:', error);
+          alert(`Failed to restrict access: ${error.message}`);
+        }
       }
     } else {
-      localStorage.setItem('debugRequiresAuth', newValue ? 'true' : 'false');
-      setDebugRequiresAuth(newValue);
-      alert(newValue ? 
-        'Debug page access is now restricted to authenticated users.' : 
-        'Debug page is now publicly accessible.');
+      try {
+        // Update localStorage
+        localStorage.setItem('debugRequiresAuth', newValue ? 'true' : 'false');
+        setDebugRequiresAuth(newValue);
+        
+        // Update backend config
+        const { updateConfig } = await import('../configStorage');
+        await updateConfig({
+          security: { debug_requires_auth: newValue }
+        });
+        
+        alert(newValue ? 
+          'Debug page access is now restricted to authenticated users.' : 
+          'Debug page is now publicly accessible.');
+      } catch (error) {
+        console.error('Failed to update debug access setting:', error);
+        alert(`Failed to update access setting: ${error.message}`);
+      }
     }
   };
 
-  const updateApiUrl = () => {
-    console.log('Updating API URL to:', customUrl);
-    userApiService.baseUrl = customUrl;
-    setStatus('ready');
-    setData(null);
-    setError(null);
+  const updateApiUrl = async () => {
+    try {
+      console.log('Updating API URL to:', customUrl);
+      
+      // Update the service URL in memory
+      userApiService.baseUrl = customUrl;
+      
+      // Update the backend URL in configuration storage
+      const { setBackendUrl } = await import('../configStorage');
+      setBackendUrl(customUrl);
+      
+      // Update the UI state
+      setStatus('ready');
+      setData(null);
+      setError(null);
+      
+      // Give feedback to user
+      alert(`API URL updated to: ${customUrl}`);
+    } catch (error) {
+      console.error('Failed to update API URL:', error);
+      setError(`Failed to update API URL: ${error.message}`);
+    }
   };
 
   return (
@@ -262,7 +350,7 @@ const DebugPage = () => {
                 value={customUrl}
                 onChange={(e) => setCustomUrl(e.target.value)}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="http://192.168.100.48:8000"
+                placeholder="http://localhost:8000"
               />
               <button
                 onClick={updateApiUrl}
@@ -272,7 +360,7 @@ const DebugPage = () => {
               </button>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Common URLs: http://localhost:8000, http://192.168.100.48:8000
+              Common URLs: http://localhost:8000, http://127.0.0.1:8000
             </p>
           </div>
 
@@ -455,11 +543,11 @@ const DebugPage = () => {
             </button>
             
             <button
-              onClick={() => setCustomUrl('http://192.168.100.48:8000')}
+              onClick={() => setCustomUrl('http://127.0.0.1:8000')}
               className="p-3 text-left border border-gray-200 rounded hover:bg-gray-50"
             >
-              <div className="font-medium">Remote Backend</div>
-              <div className="text-sm text-gray-500">http://192.168.100.48:8000</div>
+              <div className="font-medium">Alternative Local</div>
+              <div className="text-sm text-gray-500">http://127.0.0.1:8000</div>
             </button>
             
             <button

@@ -2,7 +2,10 @@
 import permanentConfigService from './services/permanentConfig';
 import appLogger from './services/appLogger';
 
-let BACKEND_URL = "http://192.168.100.48:8000";
+// Backend configuration
+let BACKEND_URL = "http://localhost:8000";
+const CONFIG_FILE_NAME = "app_config.json"; // Nombre del archivo de configuración en el backend
+const CONFIG_API_PATH = "/api/config"; // Ruta base para la API de configuración
 
 // Fallback storage for when backend is not available
 const FALLBACK_CONFIG_KEY = "kyndryl_fallback_config";
@@ -96,11 +99,23 @@ function setFallbackConfig(config) {
 
 export async function checkConfigExists() {
   try {
-    const response = await fetch(`${BACKEND_URL}/config/check`);
+    // Verificar específicamente si el archivo de configuración existe en el backend
+    const response = await fetch(`${BACKEND_URL}${CONFIG_API_PATH}/exists?file=${CONFIG_FILE_NAME}`);
     const data = await response.json();
-    return data.configured;
+    
+    // El backend debe responder con un campo "exists" que indica si el archivo existe
+    if (data && typeof data.exists === 'boolean') {
+      return data.exists;
+    }
+    
+    // Compatibilidad con la API anterior
+    if (data && typeof data.configured === 'boolean') {
+      return data.configured;
+    }
+    
+    return false;
   } catch (e) {
-    console.error("Error checking config:", e);
+    console.error("Error checking config file existence:", e);
     // If backend is not available, check if we have fallback config
     const fallbackConfig = getFallbackConfig();
     return fallbackConfig !== null;
@@ -109,17 +124,32 @@ export async function checkConfigExists() {
 
 export async function loadConfig() {
   try {
-    const response = await fetch(`${BACKEND_URL}/config`);
+    // Cargar la configuración desde el archivo específico en el backend
+    const response = await fetch(`${BACKEND_URL}${CONFIG_API_PATH}/load?file=${CONFIG_FILE_NAME}`);
+    
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      // Si el archivo no existe, intentar la API antigua como compatibilidad
+      const legacyResponse = await fetch(`${BACKEND_URL}/config`);
+      if (!legacyResponse.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const legacyData = await legacyResponse.json();
+      return legacyData.config;
     }
+    
     const data = await response.json();
-    return data.config; // Extract the config object from the response
+    
+    // Si la carga desde el backend fue exitosa, podemos eliminar cualquier configuración de respaldo
+    localStorage.removeItem(FALLBACK_CONFIG_KEY);
+    
+    // El backend debe devolver la configuración directamente en la respuesta
+    return data.config || data; 
   } catch (e) {
     console.error("Error loading config:", e);
-    // Try to load from fallback storage
+    // Usar la configuración de respaldo SOLO si no se puede alcanzar el backend
     const fallbackConfig = getFallbackConfig();
     if (fallbackConfig) {
+      console.warn("Using fallback configuration from localStorage. This is temporary until backend is available.");
       return fallbackConfig;
     }
     return null;
@@ -128,7 +158,8 @@ export async function loadConfig() {
 
 export async function saveConfig(config) {
   try {
-    const response = await fetch(`${BACKEND_URL}/config`, {
+    // Guardar la configuración en el archivo específico del backend
+    const response = await fetch(`${BACKEND_URL}${CONFIG_API_PATH}/save?file=${CONFIG_FILE_NAME}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -137,14 +168,36 @@ export async function saveConfig(config) {
     });
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      // Compatibilidad con API antigua
+      const legacyResponse = await fetch(`${BACKEND_URL}/config`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(config),
+      });
+      
+      if (!legacyResponse.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const legacyResult = await legacyResponse.json();
+      
+      // Clear any fallback config since we've successfully saved to backend
+      localStorage.removeItem(FALLBACK_CONFIG_KEY);
+      
+      return legacyResult.config; // Return the saved config
     }
     
     const result = await response.json();
-    return result.config; // Return the saved config
+    
+    // Clear any fallback config since we've successfully saved to backend
+    localStorage.removeItem(FALLBACK_CONFIG_KEY);
+    
+    return result.config || result; // Return the saved config
   } catch (e) {
     console.error("Error saving config:", e);
-    // Save to fallback storage
+    // Save to fallback storage ONLY if backend is unavailable
     setFallbackConfig(config);
     return config;
   }
@@ -152,8 +205,9 @@ export async function saveConfig(config) {
 
 export async function updateConfig(configUpdate) {
   try {
-    const response = await fetch(`${BACKEND_URL}/config`, {
-      method: "POST",
+    // Actualizar la configuración en el archivo específico del backend
+    const response = await fetch(`${BACKEND_URL}${CONFIG_API_PATH}/update?file=${CONFIG_FILE_NAME}`, {
+      method: "PATCH",  // PATCH es más apropiado para actualizaciones parciales
       headers: {
         "Content-Type": "application/json",
       },
@@ -161,14 +215,42 @@ export async function updateConfig(configUpdate) {
     });
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      // Compatibilidad con API antigua
+      const legacyResponse = await fetch(`${BACKEND_URL}/config`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(configUpdate),
+      });
+      
+      if (!legacyResponse.ok) {
+        throw new Error(`HTTP error! status: ${legacyResponse.status}`);
+      }
+      
+      const legacyResult = await legacyResponse.json();
+      
+      // If we have local fallback config, update it or remove it
+      if (getFallbackConfig()) {
+        // If backend save succeeded, remove the fallback config
+        localStorage.removeItem(FALLBACK_CONFIG_KEY);
+      }
+      
+      return legacyResult.config; // Return the updated config
     }
     
     const result = await response.json();
-    return result.config; // Return the updated config
+    
+    // If we have local fallback config, update it or remove it
+    if (getFallbackConfig()) {
+      // If backend save succeeded, remove the fallback config
+      localStorage.removeItem(FALLBACK_CONFIG_KEY);
+    }
+    
+    return result.config || result; // Return the updated config
   } catch (e) {
     console.error("Error updating config:", e);
-    // Try to update fallback config
+    // Try to update fallback config ONLY if backend is unreachable
     const currentConfig = getFallbackConfig() || {};
     const updatedConfig = { ...currentConfig, ...configUpdate };
     setFallbackConfig(updatedConfig);
@@ -178,7 +260,8 @@ export async function updateConfig(configUpdate) {
 
 export async function replaceConfig(config) {
   try {
-    const response = await fetch(`${BACKEND_URL}/config`, {
+    // Reemplazar toda la configuración en el archivo específico del backend
+    const response = await fetch(`${BACKEND_URL}${CONFIG_API_PATH}/replace?file=${CONFIG_FILE_NAME}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -187,11 +270,29 @@ export async function replaceConfig(config) {
     });
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      // Compatibilidad con API antigua
+      const legacyResponse = await fetch(`${BACKEND_URL}/config`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(config),
+      });
+      
+      if (!legacyResponse.ok) {
+        throw new Error(`HTTP error! status: ${legacyResponse.status}`);
+      }
+      
+      const legacyResult = await legacyResponse.json();
+      return legacyResult.config; // Return the replaced config
     }
     
     const result = await response.json();
-    return result.config; // Return the replaced config
+    
+    // Eliminar cualquier configuración de respaldo
+    localStorage.removeItem(FALLBACK_CONFIG_KEY);
+    
+    return result.config || result; // Return the replaced config
   } catch (e) {
     console.error("Error replacing config:", e);
     throw e;

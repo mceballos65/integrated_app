@@ -50,6 +50,7 @@ def save_data(data):
 # Initialize the model
 def load_model():
     model_path = os.path.expanduser("~/all-mpnet-base-v2")
+    # model_path = os.path.expanduser("./all-mpnet-base-v2")
     return SentenceTransformer(model_path)
 
 

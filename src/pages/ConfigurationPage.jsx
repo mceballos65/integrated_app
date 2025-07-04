@@ -34,10 +34,24 @@ export default function ConfigurationPage() {
   const [isError, setIsError] = useState(false);
 
   // Active panel state for the new sidebar layout
-  const [activePanel, setActivePanel] = useState("backend");
+  const [activePanel, setActivePanel] = useState(() => {
+    // Recuperar el panel activo de localStorage o usar "backend" como valor predeterminado
+    return localStorage.getItem('kyndryl_active_panel') || "backend";
+  });
+
+  // Función personalizada para cambiar el panel activo y guardarlo en localStorage
+  const changeActivePanel = (panel) => {
+    setActivePanel(panel);
+    localStorage.setItem('kyndryl_active_panel', panel);
+  };
 
   // Track which configs have been edited to remove warning icons
   const [editedConfigs, setEditedConfigs] = useState(() => {
+    // Intentar obtener primero desde el config
+    if (config?.edited_configs) {
+      return config.edited_configs;
+    }
+    // Si no está en el config, intentar con localStorage como fallback
     const saved = localStorage.getItem('kyndryl_edited_configs');
     return saved ? JSON.parse(saved) : {};
   });
@@ -45,10 +59,25 @@ export default function ConfigurationPage() {
   // Track if we just configured the backend URL for the first time
   const [showReloginButton, setShowReloginButton] = useState(false);
 
-  const markConfigAsEdited = (configName) => {
+  const markConfigAsEdited = async (configName) => {
     const newEditedConfigs = { ...editedConfigs, [configName]: true };
     setEditedConfigs(newEditedConfigs);
+    
+    // Guardar tanto en localStorage como en el archivo app_config.json
     localStorage.setItem('kyndryl_edited_configs', JSON.stringify(newEditedConfigs));
+    
+    // Actualizar la configuración en el backend
+    try {
+      await updateConfig({
+        edited_configs: {
+          ...config?.edited_configs,
+          [configName]: true
+        }
+      });
+      console.log(`Configuración '${configName}' marcada como editada en app_config.json`);
+    } catch (error) {
+      console.error(`Error al guardar estado editado para ${configName} en app_config.json:`, error);
+    }
   };
 
   const showStatusMessage = (text, error = false) => {
@@ -75,6 +104,10 @@ export default function ConfigurationPage() {
       const directGithubToken = config?.github?.token || "";
       const directGithubRepoUrl = config?.github?.repo_url || "";
       const directGithubBranch = config?.github?.branch || "main";
+      const directDebugRequiresAuth = config?.security?.debug_requires_auth || false;
+      
+      // Actualizar localStorage para mantener consistencia
+      localStorage.setItem('debugRequiresAuth', directDebugRequiresAuth ? 'true' : 'false');
       
       console.log("Setting local values from config directly:", {
         directPredictionUrl,
@@ -89,6 +122,39 @@ export default function ConfigurationPage() {
       setLocalGithubToken(directGithubToken);
       setLocalRepositoryUrl(directGithubRepoUrl);
       setLocalBranchName(directGithubBranch);
+      
+      // Sincronizar los estados de edición entre localStorage y el backend
+      const localEditedConfigs = localStorage.getItem('kyndryl_edited_configs');
+      if (localEditedConfigs) {
+        const parsedLocalConfigs = JSON.parse(localEditedConfigs);
+        const backendEditedConfigs = config?.edited_configs || {};
+        
+        // Combinar los estados editados locales con los del backend
+        const combinedEditedConfigs = { ...backendEditedConfigs };
+        
+        // Para cada configuración local marcada como editada, actualizar el estado combinado
+        let needsUpdate = false;
+        for (const [key, value] of Object.entries(parsedLocalConfigs)) {
+          if (value === true && !backendEditedConfigs[key]) {
+            combinedEditedConfigs[key] = true;
+            needsUpdate = true;
+          }
+        }
+        
+        // Si hay cambios, actualizar el backend
+        if (needsUpdate) {
+          updateConfig({
+            edited_configs: combinedEditedConfigs
+          }).then(() => {
+            console.log("Estados de edición sincronizados con app_config.json");
+          }).catch(err => {
+            console.error("Error al sincronizar estados de edición:", err);
+          });
+        }
+        
+        // Actualizar el estado local
+        setEditedConfigs(combinedEditedConfigs);
+      }
     }
     // Initialize backend URL
     setLocalBackendUrl(getBackendUrl());
@@ -142,6 +208,10 @@ export default function ConfigurationPage() {
       console.log("Saving config:", configChanges);
       appLogger.logConfigChange('APP_CONFIG', configChanges);
 
+      // Mark both app and github sections as edited
+      markConfigAsEdited("app");
+      markConfigAsEdited("github");
+
       const updatedConfig = await updateConfig({
         app: {
           prediction_url: localPredictionUrl,
@@ -155,6 +225,10 @@ export default function ConfigurationPage() {
       });
 
       console.log("Updated config received:", updatedConfig);
+
+      // Marcar configuraciones como editadas
+      await markConfigAsEdited("app");
+      await markConfigAsEdited("github");
 
       // Manual check of getters after update
       const currentPredictionUrl = useConfigStore.getState().predictionUrl;
@@ -198,6 +272,9 @@ export default function ConfigurationPage() {
       if (data.success) {
         setGitStatus(`✅ ${action.toUpperCase()} successful:\n${data.output}`);
         appLogger.success('GIT_ACTION', `Git ${action} successful`, { output: data.output });
+        
+        // Mark GitHub config as edited when a Git action is successfully performed
+        markConfigAsEdited("github");
       } else {
         setGitStatus(`❌ ${action.toUpperCase()} failed:\n${data.error}`);
         appLogger.error('GIT_ACTION', `Git ${action} failed`, { error: data.error });
@@ -208,15 +285,30 @@ export default function ConfigurationPage() {
     }
   };
 
-  const handleBackendUrlSave = () => {
+  const handleBackendUrlSave = async () => {
     try {
       const wasBackendUrlConfigured = localStorage.getItem('kyndryl_backend_url') !== null;
       
+      // Update the backend URL
       setBackendUrl(localBackendUrl);
       markConfigAsEdited("backend");
       
       // Mark setup as completed when backend URL is saved
       markSetupCompleted();
+      
+      // Save initial config to the new backend if this is the first time setting it
+      if (!wasBackendUrlConfigured) {
+        try {
+          // Try to save current config to the new backend
+          const { updateConfig, loadConfig } = await import("../configStorage");
+          const currentConfig = await loadConfig();
+          if (currentConfig) {
+            await updateConfig(currentConfig);
+          }
+        } catch (configError) {
+          console.warn("Could not transfer config to new backend:", configError);
+        }
+      }
       
       // If this is the first time setting the backend URL, show the relogin button
       if (!wasBackendUrlConfigured) {
@@ -237,9 +329,27 @@ export default function ConfigurationPage() {
   const handleRelogin = () => {
     // Clear the current session and reload the page to start fresh with the new backend URL
     appLogger.info('AUTH', 'User initiated relogin after backend URL configuration');
+    
+    // Preserve only the backend URL
+    const backendUrl = localStorage.getItem('kyndryl_backend_url');
+    const permanentConfig = localStorage.getItem('kyndryl_permanent_config');
+    
+    // Clear all session and local storage
     sessionStorage.clear();
-    localStorage.removeItem('kyndryl_token');
-    localStorage.removeItem('kyndryl_user');
+    
+    // Remove all items except backend URL related items
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key !== 'kyndryl_backend_url' && key !== 'kyndryl_permanent_config') {
+        localStorage.removeItem(key);
+      }
+    }
+    
+    // Make sure backend URL and permanent config are preserved
+    if (backendUrl) localStorage.setItem('kyndryl_backend_url', backendUrl);
+    if (permanentConfig) localStorage.setItem('kyndryl_permanent_config', permanentConfig);
+    
+    // Redirect to home page
     window.location.href = '/';
   };
 
@@ -272,7 +382,7 @@ export default function ConfigurationPage() {
           <nav className="space-y-2">
             {/* Backend Configuration */}
             <button
-              onClick={() => setActivePanel("backend")}
+              onClick={() => changeActivePanel("backend")}
               className={`w-full text-left p-3 rounded-lg flex items-center justify-between transition-colors ${
                 activePanel === "backend" 
                   ? "bg-kyndryl-orange text-white" 
@@ -290,7 +400,7 @@ export default function ConfigurationPage() {
 
             {/* App Configuration */}
             <button
-              onClick={() => setActivePanel("app")}
+              onClick={() => changeActivePanel("app")}
               className={`w-full text-left p-3 rounded-lg flex items-center justify-between transition-colors ${
                 activePanel === "app" 
                   ? "bg-kyndryl-orange text-white" 
@@ -308,7 +418,7 @@ export default function ConfigurationPage() {
 
             {/* User Management */}
             <button
-              onClick={() => setActivePanel("users")}
+              onClick={() => changeActivePanel("users")}
               className={`w-full text-left p-3 rounded-lg flex items-center justify-between transition-colors ${
                 activePanel === "users" 
                   ? "bg-kyndryl-orange text-white" 
@@ -319,14 +429,14 @@ export default function ConfigurationPage() {
                 <span className="text-lg mr-3">👥</span>
                 <span className="font-medium">User Management</span>
               </div>
-              {!editedConfigs.users && (
+              {!editedConfigs.user_management && (
                 <span className="text-red-500 text-xl font-bold">!</span>
               )}
             </button>
 
             {/* Admin Security */}
             <button
-              onClick={() => setActivePanel("security")}
+              onClick={() => changeActivePanel("security")}
               className={`w-full text-left p-3 rounded-lg flex items-center justify-between transition-colors ${
                 activePanel === "security" 
                   ? "bg-kyndryl-orange text-white" 
@@ -344,7 +454,7 @@ export default function ConfigurationPage() {
 
             {/* Log Configuration */}
             <button
-              onClick={() => setActivePanel("logs")}
+              onClick={() => changeActivePanel("logs")}
               className={`w-full text-left p-3 rounded-lg transition-colors ${
                 activePanel === "logs" 
                   ? "bg-kyndryl-orange text-white" 
@@ -359,7 +469,7 @@ export default function ConfigurationPage() {
 
             {/* GitHub Configuration */}
             <button
-              onClick={() => setActivePanel("github")}
+              onClick={() => changeActivePanel("github")}
               className={`w-full text-left p-3 rounded-lg transition-colors ${
                 activePanel === "github" 
                   ? "bg-kyndryl-orange text-white" 
@@ -424,7 +534,11 @@ export default function ConfigurationPage() {
             markConfigAsEdited={markConfigAsEdited}
           />}
 
-          {activePanel === "logs" && <LogConfigPanel />}
+          {activePanel === "logs" && <LogConfigPanel 
+            updateConfig={updateConfig}
+            markConfigAsEdited={markConfigAsEdited}
+            showStatusMessage={showStatusMessage}
+          />}
 
           {activePanel === "github" && <GitHubConfigPanel 
             localGithubToken={localGithubToken}
@@ -483,10 +597,10 @@ function BackendConfigPanel({ localBackendUrl, setLocalBackendUrl, handleBackend
               localhost:8000
             </button>
             <button
-              onClick={() => setLocalBackendUrl("http://192.168.100.48:8000")}
+              onClick={() => setLocalBackendUrl("http://localhost:8000")}
               className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
             >
-              192.168.100.48:8000
+              localhost:8000
             </button>
             <button
               onClick={() => setLocalBackendUrl("http://127.0.0.1:8000")}
@@ -563,7 +677,7 @@ function AppConfigPanel({ localPredictionUrl, setLocalPredictionUrl, localAccoun
             value={localPredictionUrl}
             onChange={(e) => setLocalPredictionUrl(e.target.value)}
             className="w-full border border-gray-300 rounded px-3 py-2"
-            placeholder="http://192.168.100.48:8000"
+            placeholder="http://localhost:8000"
           />
           <p className="text-sm text-gray-600 mt-1">
             URL for the prediction API service
@@ -626,6 +740,13 @@ function UserManagementPanel({ showStatusMessage, markConfigAsEdited }) {
 }
 
 function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserActive, setIsAdminUserActive, updateConfig, refreshUsers, showStatusMessage, markConfigAsEdited }) {
+  // Estado local para manejar el toggle de protección de la página de debug
+  const [isDebugProtected, setIsDebugProtected] = useState(debugRequiresAuth);
+  
+  // Sincronizar el estado local cuando cambia el prop
+  useEffect(() => {
+    setIsDebugProtected(debugRequiresAuth);
+  }, [debugRequiresAuth]);
   return (
     <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200">
       <div className="flex items-center mb-6">
@@ -721,13 +842,20 @@ function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserA
           <label className="inline-flex items-center cursor-pointer">
             <input 
               type="checkbox" 
-              checked={debugRequiresAuth} 
+              checked={isDebugProtected} 
               onChange={async (e) => {
                 const newValue = e.target.checked;
                 try {
+                  // Actualizar la configuración en el backend
                   await updateConfig({
                     security: { debug_requires_auth: newValue }
                   });
+                  
+                  // También actualizar localStorage para mantener la configuración sincronizada
+                  localStorage.setItem('debugRequiresAuth', newValue ? 'true' : 'false');
+                  
+                  // Asegurarnos de actualizar el estado local
+                  setIsDebugProtected(newValue);
                   
                   markConfigAsEdited("security");
                   showStatusMessage(newValue ? '🔒 Debug page access restricted to authenticated users' : '⚠️ Debug page is now publicly accessible');
@@ -737,7 +865,7 @@ function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserA
               }}
               className="sr-only peer" 
             />
-            <div className={`relative w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 ${debugRequiresAuth ? 'peer-checked:bg-green-600' : 'peer-checked:bg-gray-400'}`}></div>
+            <div className={`relative w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 ${isDebugProtected ? 'peer-checked:bg-green-600' : 'peer-checked:bg-gray-400'}`}></div>
             <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
               Restrict Debug Page Access
             </span>
@@ -746,17 +874,25 @@ function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserA
         <button 
           onClick={async () => {
             try {
+              // Actualizar la configuración en el backend
               await updateConfig({
                 security: { debug_requires_auth: true }
               });
+              
+              // También actualizar localStorage para mantener la configuración sincronizada
+              localStorage.setItem('debugRequiresAuth', 'true');
+              
+              // Asegurarnos de actualizar el estado local
+              setIsDebugProtected(true);
+              
               markConfigAsEdited("security");
               showStatusMessage("🔒 Security improvement applied: Debug page access is now restricted to authenticated users only!");
             } catch (error) {
               showStatusMessage('Failed to update debug access setting: ' + error.message, true);
             }
           }}
-          disabled={debugRequiresAuth}
-          className={`px-4 py-2 text-sm text-white font-medium rounded ${debugRequiresAuth ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+          disabled={isDebugProtected}
+          className={`px-4 py-2 text-sm text-white font-medium rounded ${isDebugProtected ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
         >
           Apply Security Setting
         </button>
@@ -766,8 +902,121 @@ function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserA
 }
 
 function LogConfigPanel() {
-  const [logFileLocation, setLogFileLocation] = useState("./logs/predictions.log");
-  const [maxLogEntries, setMaxLogEntries] = useState(50000);
+  const {
+    config,
+    configLoaded,
+    updateConfig,
+  } = useConfigStore();
+
+  // Inicializar con valores de la configuración
+  const [logFileLocation, setLogFileLocation] = useState(() => 
+    config?.logging?.file_location || "./logs/predictions.log"
+  );
+  const [maxLogEntries, setMaxLogEntries] = useState(() => 
+    config?.logging?.max_entries || 50000
+  );
+  const [isCleaningLogs, setIsCleaningLogs] = useState(false);
+  const [cleanupMessage, setCleanupMessage] = useState("");
+  const [cleanupSuccess, setCleanupSuccess] = useState(null);
+
+  // Sincronizar con cambios en la configuración
+  useEffect(() => {
+    if (configLoaded && config?.logging) {
+      setLogFileLocation(config.logging.file_location || "./logs/predictions.log");
+      setMaxLogEntries(config.logging.max_entries || 50000);
+    }
+  }, [configLoaded, config]);
+
+  const handleSaveConfig = async () => {
+    try {
+      const backendUrl = getBackendUrl();
+      
+      // Usar el nuevo endpoint que actualiza la configuración y limpia los logs
+      const response = await fetch(`${backendUrl}/api/config/logs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          file_location: logFileLocation,
+          max_entries: maxLogEntries
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+      
+      const result = await response.json();
+      
+      // Actualizar store para mantener sincronización
+      await updateConfig({
+        logging: {
+          file_location: logFileLocation,
+          max_entries: maxLogEntries
+        }
+      });
+      
+      // Mark logging config as edited
+      markConfigAsEdited("logging");
+      
+      // Mostrar resultados de la limpieza si se realizó
+      if (result.cleanup_result) {
+        setCleanupSuccess(result.cleanup_result.success);
+        setCleanupMessage(result.cleanup_result.message);
+        
+        // Ocultar el mensaje después de 5 segundos
+        setTimeout(() => {
+          setCleanupMessage("");
+        }, 5000);
+      }
+      
+      showStatusMessage("Log settings saved successfully! Old entries have been cleaned up.");
+      appLogger.success('CONFIG_CHANGE', 'Log configuration saved and cleanup performed', {
+        file_location: logFileLocation,
+        max_entries: maxLogEntries,
+        cleanup_result: result.cleanup_result
+      });
+    } catch (error) {
+      console.error("Error saving log configuration:", error);
+      showStatusMessage("Failed to save log settings: " + error.message, true);
+    }
+  };
+
+  const handleManualCleanup = async () => {
+    try {
+      setIsCleaningLogs(true);
+      setCleanupMessage("Cleaning up logs...");
+      const backendUrl = getBackendUrl();
+      
+      const response = await fetch(`${backendUrl}/api/logs/cleanup`, {
+        method: 'POST',
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+      
+      const result = await response.json();
+      setCleanupSuccess(result.success);
+      setCleanupMessage(result.message);
+      
+      // Ocultar el mensaje después de 5 segundos
+      setTimeout(() => {
+        setCleanupMessage("");
+      }, 5000);
+      
+      appLogger.info('LOG_MAINTENANCE', 'Manual log cleanup performed', result);
+    } catch (error) {
+      console.error("Error during log cleanup:", error);
+      setCleanupSuccess(false);
+      setCleanupMessage("Failed to clean logs: " + error.message);
+    } finally {
+      setIsCleaningLogs(false);
+    }
+  };
 
   return (
     <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200">
@@ -779,9 +1028,23 @@ function LogConfigPanel() {
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
         <h3 className="text-md font-semibold text-blue-800 mb-2">Log Configuration</h3>
         <p className="text-sm text-blue-700">
-          Configure log file location and retention settings.
+          Configure log file location and retention settings. The system will automatically clean up old log entries to maintain the maximum number specified.
         </p>
       </div>
+
+      {/* Cleanup Status Message */}
+      {cleanupMessage && (
+        <div className={`p-3 mb-4 rounded-lg border ${
+          cleanupSuccess === true 
+            ? "bg-green-50 border-green-300 text-green-800" 
+            : cleanupSuccess === false
+              ? "bg-red-50 border-red-300 text-red-800"
+              : "bg-blue-50 border-blue-300 text-blue-800"
+        }`}>
+          {cleanupSuccess === true ? "✅ " : cleanupSuccess === false ? "❌ " : "ℹ️ "}
+          {cleanupMessage}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4">
         <div>
@@ -810,17 +1073,39 @@ function LogConfigPanel() {
             max="1000000"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Maximum number of log entries to keep. Older entries will be automatically removed.
+            Maximum number of log entries to keep. When this limit is reached, older entries will be automatically removed. 
+            The system checks this limit automatically every 24 hours.
           </p>
         </div>
       </div>
 
-      <button
-        onClick={() => {}}
-        className="w-full bg-kyndryl-orange text-white font-bold py-2 px-4 rounded mt-6 hover:bg-orange-600"
-      >
-        Save Log Settings
-      </button>
+      <div className="flex gap-2 mt-6">
+        <button
+          onClick={handleSaveConfig}
+          className="flex-1 bg-kyndryl-orange text-white font-bold py-2 px-4 rounded hover:bg-orange-600"
+        >
+          Save & Apply Settings
+        </button>
+        
+        <button
+          onClick={handleManualCleanup}
+          disabled={isCleaningLogs}
+          className={`flex-1 ${
+            isCleaningLogs 
+              ? "bg-gray-400 cursor-not-allowed" 
+              : "bg-blue-600 hover:bg-blue-700"
+          } text-white font-bold py-2 px-4 rounded`}
+        >
+          {isCleaningLogs ? "Cleaning..." : "Clean Logs Now"}
+        </button>
+      </div>
+      
+      <div className="mt-4 text-xs text-gray-500">
+        <p>
+          <strong>Note:</strong> The system automatically cleans up log entries every 24 hours to maintain the specified maximum. 
+          You can also trigger a manual cleanup by clicking the "Clean Logs Now" button.
+        </p>
+      </div>
     </div>
   );
 }
@@ -962,6 +1247,7 @@ function UserManagementSection({ showStatusMessage, onUserAction }) {
       setShowCreateForm(false);
       showStatusMessage('User created successfully');
       if (onUserAction) onUserAction(() => {}); // Mark as edited
+      markConfigAsEdited("user_management");
     } catch (error) {
       showStatusMessage(`Error creating user: ${error.message}`, true);
     }
