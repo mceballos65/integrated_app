@@ -429,7 +429,7 @@ export default function ConfigurationPage() {
                 <span className="text-lg mr-3">👥</span>
                 <span className="font-medium">User Management</span>
               </div>
-              {!editedConfigs.user_management && (
+              {!editedConfigs.users && (
                 <span className="text-red-500 text-xl font-bold">!</span>
               )}
             </button>
@@ -583,9 +583,16 @@ function BackendConfigPanel({ localBackendUrl, setLocalBackendUrl, handleBackend
             placeholder="http://localhost:8000"
           />
           <p className="text-sm text-gray-600 mt-1">
-            Enter the complete URL including protocol (http:// or https://)
+            Enter the complete URL including protocol (http:// or https://) - http://localhost:8000 is the default for AIOps Extension.
           </p>
         </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">   
+              <li>Steps: </li>
+              <li>Test Connection (Wait for confirmation)</li>
+              <li>Save URL</li>
+              <li>Move to "App Configuration" section</li>
+          </div>
         
         <div>
           <label className="block font-semibold mb-2">Quick Presets:</label>
@@ -685,7 +692,7 @@ function AppConfigPanel({ localPredictionUrl, setLocalPredictionUrl, localAccoun
         </div>
 
         <div>
-          <label className="block font-semibold mb-1">Account Code (3 characters)</label>
+          <label className="block font-semibold mb-1">Account Code (tri-code)</label>
           <input
             type="text"
             value={localAccountCode}
@@ -695,7 +702,7 @@ function AppConfigPanel({ localPredictionUrl, setLocalPredictionUrl, localAccoun
             placeholder="ACM"
           />
           <p className="text-sm text-gray-600 mt-1">
-            Three-character account identifier (used in Test Matcher and other features)
+            Three-character account identifier GSMA code.
           </p>
         </div>
       </div>
@@ -728,6 +735,7 @@ function UserManagementPanel({ showStatusMessage, markConfigAsEdited }) {
         <h3 className="text-md font-semibold text-blue-800 mb-2">User Account Management</h3>
         <p className="text-sm text-blue-700">
           Create, manage, and configure user accounts for system access.
+          <h3 className="text-md font-semibold text-blue-800 mb-2">Please create a new user on this page</h3>
         </p>
       </div>
 

@@ -2,7 +2,10 @@
   {
     "id": "7f3e85df-698d-4bb8-9318-4b42817ae536",
     "phrase": "Dew Point is too low",
-    "playbook": "air_quality_handler.yml"
+    "playbook": "air_quality_handler",
+    "threshold": 0.0,
+    "component": "windows",
+    "only_on_component_match": false
   },
   {
     "id": "265c213a-def1-4e48-add2-c34d25363aed",

@@ -513,7 +513,7 @@ export default function LogsPage() {
           {/* Left Column: Prediction Logs */}
           <div className="bg-white rounded-lg shadow-md flex flex-col">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">Prediction Logs</h2>
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">Backend Logs</h2>
               
               {/* Search and Filter Controls */}
               <div className="flex flex-col gap-4 mb-4">
@@ -540,7 +540,7 @@ export default function LogsPage() {
                 
                 {/* Second row: Log type filter toggles */}
                 <div className="flex flex-wrap gap-2">
-                  <span className="text-sm font-medium text-gray-700 self-center">Show:</span>
+                  <span className="text-sm font-medium text-gray-700 self-center">Show (filters):</span>
                   <button
                     onClick={() => setLogTypeFilter(prev => ({...prev, predictionLogs: !prev.predictionLogs}))}
                     className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${

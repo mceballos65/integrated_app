@@ -217,6 +217,7 @@ export default function PredictionPage() {
               <option value="">-- Select --</option>
               <option value="windows">windows</option>
               <option value="linux">linux</option>
+              <option value="network">network</option>
             </select>
           ) : key === "only_on_component_match" ? (
             <select
@@ -258,7 +259,7 @@ export default function PredictionPage() {
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 h-[calc(100vh-8rem)] overflow-hidden">
       <div className="lg:col-span-2 flex flex-col overflow-hidden">
         <div className="flex justify-between items-center mb-2">
-          <h2 className="text-xl font-bold text-kyndryl-orange">Prediction Items</h2>
+          <h2 className="text-xl font-bold text-kyndryl-orange">Prediction Matchers</h2>
         </div>
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">

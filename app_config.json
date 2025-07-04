@@ -5,7 +5,7 @@
   },
   "logging": {
     "file_location": "./logs/predictions.log",
-    "max_entries": 100
+    "max_entries": 50000
   },
   "security": {
     "admin_user_disabled": true,
@@ -16,15 +16,15 @@
   "github": {
     "token": "",
     "repo_url": "",
-    "branch": ""
+    "branch": "main"
   },
   "edited_configs": {
     "backend": true,
     "app": true,
     "security": true,
     "github": false,
-    "logging": true,
-    "user_management": true,
+    "logging": false,
+    "user_management": false,
     "users": true
   }
 }

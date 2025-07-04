@@ -14,6 +14,117 @@ import useConfigStore from "./store";
 import { getBackendUrl, isInitialSetupCompleted } from "./configStorage";
 import appLogger from "./services/appLogger";
 
+// Initial Configuration Login Button Component
+function InitialConfigLoginButton() {
+  const [isReady, setIsReady] = useState(false);
+  const [configStatus, setConfigStatus] = useState({ backend: false, app: false, users: false });
+
+  useEffect(() => {
+    // Check if essential configurations are completed
+    const checkConfigStatus = () => {
+      try {
+        // Get edited configs from localStorage (this matches what ConfigurationPage uses)
+        const editedConfigs = JSON.parse(localStorage.getItem('kyndryl_edited_configs') || '{}');
+        
+        // Check if backend, app, and users are all configured (using the correct keys)
+        const backendConfigured = editedConfigs.backend || false;
+        const appConfigured = editedConfigs.app || false;
+        const usersConfigured = editedConfigs.users || false;
+        
+        setConfigStatus({ 
+          backend: backendConfigured, 
+          app: appConfigured, 
+          users: usersConfigured 
+        });
+        
+        const allEssentialConfigured = backendConfigured && appConfigured && usersConfigured;
+        setIsReady(allEssentialConfigured);
+      } catch (error) {
+        console.error('Error checking config status:', error);
+        setIsReady(false);
+        setConfigStatus({ backend: false, app: false, users: false });
+      }
+    };
+
+    // Initial check
+    checkConfigStatus();
+
+    // Listen for storage changes to update button state in real-time
+    const handleStorageChange = (e) => {
+      if (e.key === 'kyndryl_edited_configs') {
+        checkConfigStatus();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    // Also check periodically in case localStorage is updated by the same tab
+    const interval = setInterval(checkConfigStatus, 1000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleGoToLogin = () => {
+    if (isReady) {
+      // Navigate to login page
+      window.location.href = '/';
+    }
+  };
+
+  const getPendingConfigs = () => {
+    const pending = [];
+    if (!configStatus.backend) pending.push('Backend');
+    if (!configStatus.app) pending.push('App');
+    if (!configStatus.users) pending.push('Users');
+    return pending;
+  };
+
+  const getTooltipText = () => {
+    if (isReady) {
+      return 'All essential configurations completed! Ready to login.';
+    } else {
+      const pending = getPendingConfigs();
+      return `Complete these configurations first: ${pending.join(', ')}`;
+    }
+  };
+
+  return (
+    <div className="flex items-center">
+      {/* Configuration status indicators */}
+      {!isReady && (
+        <div className="flex items-center mr-3 space-x-1">
+          <span className="text-xs text-gray-300">Need:</span>
+          <span className={`text-xs px-1 rounded ${configStatus.backend ? 'text-green-400' : 'text-red-400'}`}>
+            Backend
+          </span>
+          <span className={`text-xs px-1 rounded ${configStatus.app ? 'text-green-400' : 'text-red-400'}`}>
+            App
+          </span>
+          <span className={`text-xs px-1 rounded ${configStatus.users ? 'text-green-400' : 'text-red-400'}`}>
+            Users
+          </span>
+        </div>
+      )}
+      
+      <button
+        onClick={handleGoToLogin}
+        disabled={!isReady}
+        className={`px-4 py-2 rounded font-semibold text-sm transition-all duration-200 ${
+          isReady
+            ? 'bg-kyndryl-orange text-white hover:bg-opacity-90 cursor-pointer'
+            : 'bg-gray-500 text-gray-300 cursor-not-allowed opacity-60'
+        }`}
+        title={getTooltipText()}
+      >
+        {isReady ? '🚀 Go to Login' : '⏳ Go to Login'}
+      </button>
+    </div>
+  );
+}
+
 // Loading component
 function LoadingScreen() {
   return (
@@ -38,7 +149,7 @@ function InitialSetupScreen() {
             <img src={kyndrylLogo} alt="Kyndryl Logo" className="h-12" />
           </div>
           
-          <h1 className="text-3xl font-bold text-kyndryl-orange mb-4">🚀 Welcome to Kyndryl AI Event Automation</h1>
+          <h1 className="text-3xl font-bold text-kyndryl-orange mb-4">🚀 Welcome to Kyndryl Event Automation AI</h1>
           <p className="text-gray-600 mb-6">This appears to be your first time running the application. Let's get you set up!</p>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -47,23 +158,23 @@ function InitialSetupScreen() {
               <li>• <strong>Configure Backend Server URL</strong> - Set the address of your backend server</li>
               <li>• Test backend connection to ensure it's reachable</li>
               <li>• Configure your prediction URL and account code</li>
+              <li>• Create admin user </li>
               <li>• Set up GitHub integration (optional)</li>
-              <li>• Configure security settings</li>
-              <li>• Create admin user if needed</li>
+              <li>• Configure security settings (optional)</li>              
             </ul>
           </div>
           
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          {/* <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
             <h3 className="text-md font-semibold text-yellow-800 mb-2">📡 Backend Server Required</h3>
             <p className="text-sm text-yellow-700">
               You'll need to configure the backend server URL first. This could be:
             </p>
             <ul className="text-sm text-yellow-700 text-left mt-2 space-y-1">
-              <li>• http://localhost:8000 (if running locally)</li>
+              <li>• http://localhost:8000 (AIOps Extension - DEFAULT)</li>
               <li>• http://127.0.0.1:8000 (alternative local address)</li>
               <li>• Any other server address where your backend is hosted</li>
             </ul>
-          </div>
+          </div> */}
           
           <div className="space-y-4">
             <a 
@@ -74,7 +185,7 @@ function InitialSetupScreen() {
                 window.location.href = '/config';
               }}
             >
-              🔧 Configure Backend Server
+              🔧 Start Configuration Wizard
             </a>
             <br />
             <a 
@@ -191,19 +302,33 @@ function AppContent() {
 
   // Show setup screen for unconfigured state or connection issues
   if (isUnconfigured) {
-    // Allow direct access to debug page when unconfigured
-    if (window.location.pathname === '/debug' || window.location.pathname === '/config') {
-      if (window.location.pathname === '/debug') {
-        return <DebugPage />;
-      }
-      // For config page, we need to be logged in unless unconfigured
-      if (!isLoggedIn) {
-        return <LoginPageNew />;
-      }
-      // Return the normal app routing for config page
-    } else {
-      return <InitialSetupScreen />;
+    // Allow direct access to debug and config pages when unconfigured
+    if (window.location.pathname === '/debug') {
+      return <DebugPage />;
     }
+    if (window.location.pathname === '/config') {
+      // For unconfigured state, allow access to config page without login to set initial config
+      return (
+        <div className="min-h-screen bg-white text-black">
+          <nav className="bg-kyndryl-black text-white px-6 py-4 shadow-md">
+            <div className="container mx-auto flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="flex items-center mr-8">
+                  <img src={kyndrylLogo} alt="Kyndryl Logo" className="h-8" />
+                </div>
+                <h1 className="text-xl font-semibold">Initial Configuration Wizard</h1>
+              </div>
+              <InitialConfigLoginButton />
+            </div>
+          </nav>
+          <main className="p-6">
+            <ConfigurationPage />
+          </main>
+        </div>
+      );
+    }
+    // For all other paths, show the initial setup screen
+    return <InitialSetupScreen />;
   }
 
   // Handle access to the debug page
@@ -246,26 +371,6 @@ function AppContent() {
     
     // Otherwise, allow access to the debug page
     return <DebugPage />;
-  }
-
-  // Handle access to config page when unconfigured
-  if (window.location.pathname === '/config' && isUnconfigured) {
-    // For unconfigured state, we can access config page without login to set initial config
-    return (
-      <div className="min-h-screen bg-white text-black">
-        <nav className="bg-kyndryl-black text-white px-6 py-4 shadow-md">
-          <div className="container mx-auto flex items-center">
-            <div className="flex items-center mr-8">
-              <img src={kyndrylLogo} alt="Kyndryl Logo" className="h-8" />
-            </div>
-            <h1 className="text-xl font-semibold">Initial Configuration</h1>
-          </div>
-        </nav>
-        <main className="p-6">
-          <ConfigurationPage />
-        </main>
-      </div>
-    );
   }
 
   // Allow direct access to simple test page
