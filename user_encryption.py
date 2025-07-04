@@ -14,12 +14,20 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 # File paths
-USERS_FILE = "./userandpassword.encrypted"
-KEY_FILE = "./encryption.key"
-SALT_FILE = "./salt.key"
+USERS_FILE = "./app_data/config/userandpassword.encrypted"
+KEY_FILE = "./app_data/config/encryption.key"
+SALT_FILE = "./app_data/config/salt.key"
+
+def ensure_directories():
+    """Ensure that required directories exist"""
+    os.makedirs("./app_data/config", exist_ok=True)
+    os.makedirs("./app_data/logs", exist_ok=True)
 
 def generate_encryption_key() -> bytes:
     """Generate a new encryption key and save it to file"""
+    # Ensure directories exist
+    ensure_directories()
+    
     # Generate a random salt
     salt = os.urandom(16)
     
@@ -46,6 +54,9 @@ def generate_encryption_key() -> bytes:
 
 def load_encryption_key() -> bytes:
     """Load encryption key from file, create if doesn't exist"""
+    # Ensure directories exist
+    ensure_directories()
+    
     if not os.path.exists(KEY_FILE) or not os.path.exists(SALT_FILE):
         return generate_encryption_key()
     

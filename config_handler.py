@@ -8,7 +8,7 @@ import os
 from typing import Dict, Any, Optional
 
 # Nombre del archivo de configuración por defecto
-DEFAULT_CONFIG_FILENAME = "app_config.json"
+DEFAULT_CONFIG_FILENAME = "app_data/config/app_config.json"
 
 # Configuración por defecto
 DEFAULT_CONFIG = {
@@ -17,7 +17,7 @@ DEFAULT_CONFIG = {
         "account_code": "ACM"
     },
     "logging": {
-        "file_location": "./logs/predictions.log",
+        "file_location": "./app_data/logs/predictions.log",
         "max_entries": 50000
     },
     "security": {
@@ -42,6 +42,11 @@ DEFAULT_CONFIG = {
     }
 }
 
+def ensure_directories():
+    """Ensure that required directories exist"""
+    os.makedirs("./app_data/config", exist_ok=True)
+    os.makedirs("./app_data/logs", exist_ok=True)
+
 def get_config_path(filename: str) -> str:
     """Obtiene la ruta absoluta al archivo de configuración"""
     return os.path.abspath(filename)
@@ -53,6 +58,9 @@ def config_exists(filename: str) -> bool:
 
 def load_config(filename: str) -> Dict[str, Any]:
     """Carga la configuración desde un archivo JSON"""
+    # Ensure directories exist
+    ensure_directories()
+    
     config_path = get_config_path(filename)
     if not config_exists(filename):
         return DEFAULT_CONFIG
@@ -67,6 +75,9 @@ def load_config(filename: str) -> Dict[str, Any]:
 
 def save_config(config: Dict[str, Any], filename: str) -> Dict[str, Any]:
     """Guarda la configuración en un archivo JSON"""
+    # Ensure directories exist
+    ensure_directories()
+    
     config_path = get_config_path(filename)
     try:
         with open(config_path, 'w', encoding='utf-8') as f:

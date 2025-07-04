@@ -11,6 +11,11 @@ from config import SIMILARITY_THRESHOLD, ENABLE_LOGGING, LOG_FILE_PATH, DATA_FIL
 # Set environment to be fully offline
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
+def ensure_directories():
+    """Ensure that required directories exist"""
+    os.makedirs("./app_data/config", exist_ok=True)
+    os.makedirs("./app_data/logs", exist_ok=True)
+
 #  Text normalization function
 def normalize_text(text):
     text = text.lower()
@@ -26,7 +31,8 @@ def load_data():
     return []
 
 # Here we load the accounts database
-def load_disabled_by_matcher(file_path="accounts.json"):
+def load_disabled_by_matcher(file_path="app_data/config/accounts.json"):
+    ensure_directories()
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             raw = json.load(f)
@@ -35,7 +41,8 @@ def load_disabled_by_matcher(file_path="accounts.json"):
         return {}
     
 # Here we save the accounts database
-def save_disabled_by_matcher(data, file_path="accounts.json"):
+def save_disabled_by_matcher(data, file_path="app_data/config/accounts.json"):
+    ensure_directories()
     serializable_data = {k: list(v) for k, v in data.items()}
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(serializable_data, f, indent=2)
@@ -43,6 +50,7 @@ def save_disabled_by_matcher(data, file_path="accounts.json"):
 
 # save database
 def save_data(data):
+    ensure_directories()
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=2)
 

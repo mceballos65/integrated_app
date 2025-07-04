@@ -7,7 +7,7 @@ const defaultConfig = {
     account_code: "ACM"
   },
   logging: {
-    file_location: "./logs/predictions.log",
+    file_location: "./app_data/logs/predictions.log",
     max_entries: 50000
   },
   security: {
@@ -42,7 +42,7 @@ const useConfigStore = create((set, get) => ({
     console.log("accountCode getter:", { config: get().config, value });
     return value;
   },
-  get logFileLocation() { return get().config?.logging?.file_location || "./logs/predictions.log"; },
+  get logFileLocation() { return get().config?.logging?.file_location || "./app_data/logs/predictions.log"; },
   get maxLogEntries() { return get().config?.logging?.max_entries || 50000; },
   get adminUserDisabled() { return get().config?.security?.admin_user_disabled || false; },
   get debugRequiresAuth() { 

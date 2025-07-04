@@ -11,7 +11,8 @@ export default function ConfigurationPage() {
     configLoaded,
     loading,
     error,
-    updateConfig
+    updateConfig,
+    loadConfig
   } = useConfigStore();
   
   // We'll use config values directly instead of getters
@@ -40,9 +41,29 @@ export default function ConfigurationPage() {
   });
 
   // Función personalizada para cambiar el panel activo y guardarlo en localStorage
-  const changeActivePanel = (panel) => {
+  const changeActivePanel = async (panel) => {
+    console.log(`Switching to panel: ${panel}, reloading config from backend...`);
     setActivePanel(panel);
     localStorage.setItem('kyndryl_active_panel', panel);
+    
+    // Reload configuration from backend when switching tabs
+    try {
+      await loadConfig();
+      console.log('Configuration reloaded successfully');
+    } catch (error) {
+      console.error('Error reloading configuration:', error);
+      showStatusMessage('Error reloading configuration from backend', true);
+    }
+  };
+
+  // Helper function to reload config after making changes
+  const reloadConfigAfterChange = async () => {
+    try {
+      await loadConfig();
+      console.log('Configuration reloaded after change');
+    } catch (error) {
+      console.error('Error reloading configuration after change:', error);
+    }
   };
 
   // Track which configs have been edited to remove warning icons
@@ -160,7 +181,7 @@ export default function ConfigurationPage() {
     setLocalBackendUrl(getBackendUrl());
   }, [configLoaded, config]); // Simplified dependencies
 
-  // Check admin user status
+  // Check admin user status and sync with backend config
   useEffect(() => {
     async function checkAdminStatus() {
       try {
@@ -171,6 +192,19 @@ export default function ConfigurationPage() {
         if (adminUser) {
           setIsAdminUserActive(adminUser.is_active);
           console.log('Admin user status:', adminUser.is_active ? 'Active' : 'Inactive');
+          
+          // Sync backend config with actual user status if needed
+          if (adminUserDisabled && adminUser.is_active) {
+            // If config says admin should be disabled but user is active, disable the user
+            console.log('Syncing: Disabling admin user to match backend config');
+            await userApiService.toggleUserStatus('admin');
+            setIsAdminUserActive(false);
+          } else if (!adminUserDisabled && !adminUser.is_active) {
+            // If config says admin should be enabled but user is inactive, enable the user
+            console.log('Syncing: Enabling admin user to match backend config');
+            await userApiService.toggleUserStatus('admin');
+            setIsAdminUserActive(true);
+          }
         } else {
           console.log('Admin user not found');
           setIsAdminUserActive(false);
@@ -182,8 +216,10 @@ export default function ConfigurationPage() {
     
     if (configLoaded) {
       checkAdminStatus();
+      // Also refresh the users list to ensure UI is in sync
+      refreshUsers();
     }
-  }, [adminUserDisabled, configLoaded]);
+  }, [adminUserDisabled, configLoaded, refreshUsers]);
 
   const handleSave = async () => {
     if (!/^[a-zA-Z0-9]{3}$/.test(localAccountCode)) {
@@ -521,6 +557,8 @@ export default function ConfigurationPage() {
           {activePanel === "users" && <UserManagementPanel 
             showStatusMessage={showStatusMessage}
             markConfigAsEdited={markConfigAsEdited}
+            reloadConfig={reloadConfigAfterChange}
+            updateConfig={updateConfig}
           />}
 
           {activePanel === "security" && <AdminSecurityPanel 
@@ -532,6 +570,7 @@ export default function ConfigurationPage() {
             refreshUsers={refreshUsers}
             showStatusMessage={showStatusMessage}
             markConfigAsEdited={markConfigAsEdited}
+            reloadConfig={reloadConfigAfterChange}
           />}
 
           {activePanel === "logs" && <LogConfigPanel 
@@ -717,7 +756,7 @@ function AppConfigPanel({ localPredictionUrl, setLocalPredictionUrl, localAccoun
   );
 }
 
-function UserManagementPanel({ showStatusMessage, markConfigAsEdited }) {
+function UserManagementPanel({ showStatusMessage, markConfigAsEdited, reloadConfig, updateConfig }) {
   // Mark as edited when user interacts with this panel
   const handleUserAction = (action) => {
     markConfigAsEdited("users");
@@ -742,12 +781,14 @@ function UserManagementPanel({ showStatusMessage, markConfigAsEdited }) {
       <UserManagementSection 
         showStatusMessage={showStatusMessage}
         onUserAction={handleUserAction}
+        reloadConfig={reloadConfig}
+        updateConfig={updateConfig}
       />
     </div>
   );
 }
 
-function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserActive, setIsAdminUserActive, updateConfig, refreshUsers, showStatusMessage, markConfigAsEdited }) {
+function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserActive, setIsAdminUserActive, updateConfig, refreshUsers, showStatusMessage, markConfigAsEdited, reloadConfig }) {
   // Estado local para manejar el toggle de protección de la página de debug
   const [isDebugProtected, setIsDebugProtected] = useState(debugRequiresAuth);
   
@@ -790,23 +831,35 @@ function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserA
               type="checkbox" 
               checked={adminUserDisabled} 
               onChange={async (e) => {
-                const newValue = e.target.checked;
+                const newConfigValue = e.target.checked; // true = disabled, false = enabled
                 try {
-                  if ((isAdminUserActive && newValue) || (!isAdminUserActive && !newValue)) {
+                  // First update the backend configuration
+                  await updateConfig({
+                    security: { admin_user_disabled: newConfigValue }
+                  });
+                  
+                  // Then sync the actual user status to match the config
+                  if (newConfigValue && isAdminUserActive) {
+                    // Config says disable, and user is currently active -> deactivate user
                     const userApiService = await import("../services/userApi");
                     await userApiService.default.toggleUserStatus('admin');
                     refreshUsers();
-                    setIsAdminUserActive(!isAdminUserActive);
+                    setIsAdminUserActive(false);
+                  } else if (!newConfigValue && !isAdminUserActive) {
+                    // Config says enable, and user is currently inactive -> activate user
+                    const userApiService = await import("../services/userApi");
+                    await userApiService.default.toggleUserStatus('admin');
+                    refreshUsers();
+                    setIsAdminUserActive(true);
                   }
                   
-                  await updateConfig({
-                    security: { admin_user_disabled: newValue }
-                  });
-                  
                   markConfigAsEdited("security");
-                  showStatusMessage(newValue ? '🔒 Default admin user disabled for security' : '⚠️ Warning: Default admin user is now enabled');
+                  showStatusMessage(newConfigValue ? '🔒 Default admin user disabled for security' : '⚠️ Warning: Default admin user is now enabled');
+                  
+                  // Reload configuration from backend to ensure UI shows real state
+                  await reloadConfig();
                 } catch (error) {
-                  showStatusMessage(`Error toggling admin user status: ${error.message}`, true);
+                  showStatusMessage(`Error updating admin user configuration: ${error.message}`, true);
                 }
               }}
               className="sr-only peer" 
@@ -820,6 +873,12 @@ function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserA
         <button 
           onClick={async () => {
             try {
+              // Update backend configuration first
+              await updateConfig({
+                security: { admin_user_disabled: true }
+              });
+              
+              // Then ensure the user is actually deactivated
               if (isAdminUserActive) {
                 const userApiService = await import("../services/userApi");
                 await userApiService.default.toggleUserStatus('admin');
@@ -827,14 +886,13 @@ function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserA
                 setIsAdminUserActive(false);
               }
               
-              await updateConfig({
-                security: { admin_user_disabled: true }
-              });
-              
               markConfigAsEdited("security");
               showStatusMessage("🔒 Security improvement applied: Default admin user has been disabled for security!");
+              
+              // Reload configuration from backend to ensure UI shows real state
+              await reloadConfig();
             } catch (error) {
-              showStatusMessage(`Error toggling admin user status: ${error.message}`, true);
+              showStatusMessage(`Error applying security setting: ${error.message}`, true);
             }
           }}
           disabled={adminUserDisabled}
@@ -867,6 +925,9 @@ function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserA
                   
                   markConfigAsEdited("security");
                   showStatusMessage(newValue ? '🔒 Debug page access restricted to authenticated users' : '⚠️ Debug page is now publicly accessible');
+                  
+                  // Reload configuration from backend to ensure UI shows real state
+                  await reloadConfig();
                 } catch (error) {
                   showStatusMessage('Failed to update debug access setting: ' + error.message, true);
                 }
@@ -895,6 +956,9 @@ function AdminSecurityPanel({ adminUserDisabled, debugRequiresAuth, isAdminUserA
               
               markConfigAsEdited("security");
               showStatusMessage("🔒 Security improvement applied: Debug page access is now restricted to authenticated users only!");
+              
+              // Reload configuration from backend to ensure UI shows real state
+              await reloadConfig();
             } catch (error) {
               showStatusMessage('Failed to update debug access setting: ' + error.message, true);
             }
@@ -918,7 +982,7 @@ function LogConfigPanel() {
 
   // Inicializar con valores de la configuración
   const [logFileLocation, setLogFileLocation] = useState(() => 
-    config?.logging?.file_location || "./logs/predictions.log"
+    config?.logging?.file_location || "./app_data/logs/predictions.log"
   );
   const [maxLogEntries, setMaxLogEntries] = useState(() => 
     config?.logging?.max_entries || 50000
@@ -1202,7 +1266,7 @@ function GitHubConfigPanel({ localGithubToken, setLocalGithubToken, localReposit
 }
 
 // User Management Section Component
-function UserManagementSection({ showStatusMessage, onUserAction }) {
+function UserManagementSection({ showStatusMessage, onUserAction, reloadConfig, updateConfig }) {
   const { user: currentUser } = useAuth();
   const {
     users,
@@ -1295,8 +1359,35 @@ function UserManagementSection({ showStatusMessage, onUserAction }) {
     }
     
     try {
+      // First toggle the user status
       await toggleUserStatus(username);
       showStatusMessage('User status updated successfully');
+      
+      // If it's the admin user, also update the configuration to match
+      if (username === 'admin' && updateConfig) {
+        // Get the updated user status
+        const userApiService = await import("../services/userApi");
+        const updatedUsers = await userApiService.default.getUsers();
+        const adminUser = updatedUsers.find(user => user.username === 'admin');
+        
+        if (adminUser) {
+          // Update config to match the new user status
+          // If user is now inactive, set admin_user_disabled to true
+          // If user is now active, set admin_user_disabled to false
+          const configValue = !adminUser.is_active;
+          
+          await updateConfig({
+            security: { admin_user_disabled: configValue }
+          });
+          
+          console.log(`Admin user config updated: admin_user_disabled = ${configValue}`);
+        }
+      }
+      
+      // Reload config to sync with admin security panel
+      if (username === 'admin' && reloadConfig) {
+        await reloadConfig();
+      }
     } catch (error) {
       showStatusMessage(`Error updating user status: ${error.message}`, true);
     }

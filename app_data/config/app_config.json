@@ -4,7 +4,7 @@
     "account_code": "ACM"
   },
   "logging": {
-    "file_location": "./logs/predictions.log",
+    "file_location": "./app_data/logs/predictions.log",
     "max_entries": 50000
   },
   "security": {
@@ -24,7 +24,7 @@
     "security": true,
     "github": false,
     "logging": false,
-    "user_management": false,
+    "user_management": true,
     "users": true
   }
 }

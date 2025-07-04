@@ -4,7 +4,7 @@ import appLogger from './services/appLogger';
 
 // Backend configuration
 let BACKEND_URL = "http://localhost:8000";
-const CONFIG_FILE_NAME = "app_config.json"; // Nombre del archivo de configuración en el backend
+const CONFIG_FILE_NAME = "./app_data/config/app_config.json"; // Nombre del archivo de configuración en el backend
 const CONFIG_API_PATH = "/api/config"; // Ruta base para la API de configuración
 
 // Fallback storage for when backend is not available

@@ -5,7 +5,7 @@ SIMILARITY_THRESHOLD = 0.40
 
 # Logging configuration
 ENABLE_LOGGING = True  # Enable or disable logging
-LOG_FILE_PATH = "logs/predictions.log"  # Path to the log file
+LOG_FILE_PATH = "app_data/logs/predictions.log"  # Path to the log file
 
 # Data file path
-DATA_FILE = "data.json"  # Path to the data file
+DATA_FILE = "app_data/config/data.json"  # Path to the data file

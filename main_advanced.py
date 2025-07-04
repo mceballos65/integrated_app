@@ -48,7 +48,7 @@ setup_logging()
 app = FastAPI()
 
 # Nombre de archivo de configuración por defecto
-CONFIG_FILE = "app_config.json"
+CONFIG_FILE = "app_data/config/app_config.json"
 
 # Initialize user management system
 print("Initializing user management system...")
@@ -135,7 +135,7 @@ class AppConfig(BaseModel):
     account_code: Optional[str] = "ACM"
 
 class LoggingConfig(BaseModel):
-    logFileLocation: Optional[str] = "./logs/predictions.log"
+    logFileLocation: Optional[str] = "./app_data/logs/predictions.log"
     maxLogEntries: Optional[int] = 50000
 
 class SecurityConfig(BaseModel):
@@ -160,7 +160,7 @@ def update_embeddings():
     embeddings = generate_embeddings(data, model)
 
 # Configuration management functions
-CONFIG_FILE_PATH = "app_config.json"
+CONFIG_FILE_PATH = "app_data/config/app_config.json"
 
 def get_default_config():
     """Returns the default configuration structure"""
@@ -170,7 +170,7 @@ def get_default_config():
             "account_code": "ACM"
         },
         "logging": {
-            "logFileLocation": "./logs/predictions.log",
+            "logFileLocation": "./app_data/logs/predictions.log",
             "maxLogEntries": 50000
         },
         "security": {
@@ -925,7 +925,7 @@ async def delete_config_endpoint(file: str = Query(config_handler.DEFAULT_CONFIG
 # APPLICATION LOGGING ENDPOINTS
 # ========================================
 
-APP_LOG_FILE = "./logs/app_log.log"
+APP_LOG_FILE = "./app_data/logs/app_log.log"
 
 def ensure_app_log_directory():
     """Ensure the logs directory exists"""
@@ -1037,7 +1037,7 @@ async def get_app_logs(request: Request, limit: int = 1000):
 # PREDICTION LOGS ENDPOINT
 # ========================================
 
-PREDICTION_LOG_FILE = "./logs/predictions.log"
+PREDICTION_LOG_FILE = "./app_data/logs/predictions.log"
 
 @app.get("/logs/predictions")
 async def get_prediction_logs(request: Request, limit: int = 1000):
@@ -1249,9 +1249,9 @@ def user_health_check():
                 "total_users": user_count,
                 "admin_exists": admin_exists,
                 "files": {
-                    "encrypted_data": "userandpassword.encrypted",
-                    "encryption_key": "encryption.key",
-                    "salt_key": "salt.key"
+                    "encrypted_data": "app_data/config/userandpassword.encrypted",
+                    "encryption_key": "app_data/config/encryption.key",
+                    "salt_key": "app_data/config/salt.key"
                 }
             },
             "configuration": config_status,
@@ -1367,7 +1367,7 @@ def clean_logs(log_file_path=None, max_entries=None):
         
         # Si no se proporcionaron parámetros, usar los valores de la configuración
         if log_file_path is None:
-            log_file_path = config.get("logging", {}).get("file_location", "./logs/predictions.log")
+            log_file_path = config.get("logging", {}).get("file_location", "./app_data/logs/predictions.log")
         
         if max_entries is None:
             max_entries = config.get("logging", {}).get("max_entries", 50000)
@@ -1439,7 +1439,7 @@ def periodic_log_cleanup():
             if now - last_log_cleanup >= cleanup_interval:
                 print(f"[{now.isoformat()}] Running scheduled log cleanup...")
                 config = config_handler.load_config(CONFIG_FILE)
-                log_file_path = config.get("logging", {}).get("file_location", "./logs/predictions.log")
+                log_file_path = config.get("logging", {}).get("file_location", "./app_data/logs/predictions.log")
                 max_entries = config.get("logging", {}).get("max_entries", 50000)
                 result = clean_logs(log_file_path, max_entries)
                 print(f"[{now.isoformat()}] Cleanup result: {result['message']}")
@@ -1460,7 +1460,7 @@ async def cleanup_logs_endpoint(request: Request):
     try:
         # Obtener la configuración actual
         config = config_handler.load_config(CONFIG_FILE)
-        log_file_path = config.get("logging", {}).get("file_location", "./logs/predictions.log")
+        log_file_path = config.get("logging", {}).get("file_location", "./app_data/logs/predictions.log")
         max_entries = config.get("logging", {}).get("max_entries", 50000)
         
         # Realizar la limpieza
@@ -1573,7 +1573,7 @@ async def startup_event():
     try:
         print(f"[{datetime.now().isoformat()}] Application startup - Cleaning logs...")
         config = config_handler.load_config(CONFIG_FILE)
-        log_file_path = config.get("logging", {}).get("file_location", "./logs/predictions.log")
+        log_file_path = config.get("logging", {}).get("file_location", "./app_data/logs/predictions.log")
         max_entries = config.get("logging", {}).get("max_entries", 50000)
         
         result = clean_logs(log_file_path, max_entries)
@@ -1628,7 +1628,7 @@ async def get_log_cleanup_status():
     try:
         # Obtener la configuración actual
         config = config_handler.load_config(CONFIG_FILE)
-        log_file_path = config.get("logging", {}).get("file_location", "./logs/predictions.log")
+        log_file_path = config.get("logging", {}).get("file_location", "./app_data/logs/predictions.log")
         max_entries = config.get("logging", {}).get("max_entries", 50000)
         
         # Verificar si el archivo existe
