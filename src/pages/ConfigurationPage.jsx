@@ -186,7 +186,8 @@ export default function ConfigurationPage() {
       
       setLocalPredictionUrl(directPredictionUrl);
       setLocalAccountCode(directAccountCode);
-      setLocalGithubToken(directGithubToken);
+      // Never load the token into the frontend for security reasons
+      // setLocalGithubToken(directGithubToken);
       setLocalRepositoryUrl(directGithubRepoUrl);
       setLocalBranchName(directGithubBranch);
       
@@ -334,7 +335,7 @@ export default function ConfigurationPage() {
         // Use snake_case field names that come from backend
         setLocalPredictionUrl(updatedConfig.app?.prediction_url || "");
         setLocalAccountCode(updatedConfig.app?.account_code || "");
-        setLocalGithubToken(updatedConfig.github?.token || "");
+        // Never load token into frontend - it should always start empty for security
         setLocalRepositoryUrl(updatedConfig.github?.repo_url || "");
         setLocalBranchName(updatedConfig.github?.branch || "");
       }
@@ -664,6 +665,8 @@ export default function ConfigurationPage() {
             setLocalBranchName={setLocalBranchName}
             handleGitAction={handleGitAction}
             gitStatus={gitStatus}
+            showStatusMessage={showStatusMessage}
+            markConfigAsEdited={markConfigAsEdited}
           />}
           
           {/* Need Help Link - appears at the bottom of all tabs */}
@@ -1375,7 +1378,60 @@ function LogConfigPanel() {
   );
 }
 
-function GitHubConfigPanel({ localGithubToken, setLocalGithubToken, localRepositoryUrl, setLocalRepositoryUrl, localBranchName, setLocalBranchName, handleGitAction, gitStatus }) {
+function GitHubConfigPanel({ 
+  localGithubToken, 
+  setLocalGithubToken, 
+  localRepositoryUrl, 
+  setLocalRepositoryUrl, 
+  localBranchName, 
+  setLocalBranchName, 
+  handleGitAction, 
+  gitStatus,
+  showStatusMessage,
+  markConfigAsEdited 
+}) {
+  const { saveGithubSettings, checkGithubTokenExists } = useConfigStore();
+  const [tokenExists, setTokenExists] = useState(false);
+
+  // Check if token exists when component loads
+  useEffect(() => {
+    const checkToken = async () => {
+      try {
+        const exists = await checkGithubTokenExists();
+        setTokenExists(exists);
+      } catch (error) {
+        console.error("Error checking token existence:", error);
+        setTokenExists(false);
+      }
+    };
+    checkToken();
+  }, [checkGithubTokenExists]);
+
+  const handleSaveGithubConfig = async () => {
+    try {
+      const config = {
+        repo_url: localRepositoryUrl,
+        branch: localBranchName || "main"
+      };
+
+      // Use the store function to save both config and token
+      await saveGithubSettings(localGithubToken, config);
+      
+      // Mark GitHub config as edited
+      markConfigAsEdited("github");
+      
+      showStatusMessage("GitHub configuration saved successfully!");
+      
+      // Clear the token from the input for security and recheck token existence
+      setLocalGithubToken("");
+      const exists = await checkGithubTokenExists();
+      setTokenExists(exists);
+      
+    } catch (error) {
+      console.error("Error saving GitHub configuration:", error);
+      showStatusMessage("Failed to save GitHub configuration: " + error.message, true);
+    }
+  };
   return (
     <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200">
       <div className="flex items-center mb-6">
@@ -1393,15 +1449,23 @@ function GitHubConfigPanel({ localGithubToken, setLocalGithubToken, localReposit
       <div className="grid grid-cols-1 gap-4">
         <div>
           <label className="block font-semibold mb-1">GitHub Token</label>
-          <input
-            type="password"
-            value={localGithubToken}
-            onChange={(e) => setLocalGithubToken(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2"
-            placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-          />
+          <div className="flex gap-2 items-center">
+            <input
+              type="password"
+              value={localGithubToken}
+              onChange={(e) => setLocalGithubToken(e.target.value)}
+              className="flex-1 border border-gray-300 rounded px-3 py-2"
+              placeholder={tokenExists ? "Token is already configured" : "ghp_xxxxxxxxxxxxxxxxxxxx"}
+            />
+            {tokenExists && (
+              <span className="text-green-600 text-sm font-medium">✓ Configured</span>
+            )}
+          </div>
           <p className="text-xs text-gray-500 mt-1">
-            Personal access token for GitHub API access
+            {tokenExists 
+              ? "Personal access token is securely stored. Enter a new token to update it." 
+              : "Personal access token for GitHub API access"
+            }
           </p>
         </div>
 
@@ -1435,6 +1499,15 @@ function GitHubConfigPanel({ localGithubToken, setLocalGithubToken, localReposit
       </div>
 
       <div className="flex gap-2 mt-6">
+        <button
+          onClick={handleSaveGithubConfig}
+          className="flex-1 bg-kyndryl-orange text-white px-4 py-2 rounded hover:bg-orange-600 font-medium"
+        >
+          💾 Save Configuration
+        </button>
+      </div>
+
+      <div className="flex gap-2 mt-4">
         <button
           onClick={() => handleGitAction("pull")}
           className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"

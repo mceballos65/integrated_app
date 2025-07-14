@@ -1,5 +1,14 @@
 import { create } from "zustand";
-import { loadConfig, saveConfig, updateConfig, checkConfigExists } from "./configStorage";
+import { 
+  loadConfig, 
+  saveConfig, 
+  updateConfig, 
+  checkConfigExists, 
+  saveGithubToken, 
+  checkGithubTokenExists, 
+  deleteGithubToken,
+  saveGithubConfig 
+} from "./configStorage";
 
 const defaultConfig = {
   app: {
@@ -204,6 +213,27 @@ const useConfigStore = create((set, get) => ({
 
   setSecuritySettings: async (securityConfig) => {
     await get().updateConfig({ security: securityConfig });
+  },
+
+  // GitHub token management functions
+  saveGithubSettings: async (token, config) => {
+    // Save the GitHub config (repo_url, branch) via the regular config endpoint
+    if (config) {
+      await get().updateConfig({ github: config });
+    }
+    
+    // Save the token separately via the secure token endpoint (only if token is provided)
+    if (token && token.trim()) {
+      await saveGithubToken(token);
+    }
+  },
+
+  checkGithubTokenExists: async () => {
+    return await checkGithubTokenExists();
+  },
+
+  deleteGithubToken: async () => {
+    return await deleteGithubToken();
   }
 }));
 

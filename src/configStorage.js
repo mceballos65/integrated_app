@@ -298,3 +298,105 @@ export async function replaceConfig(config) {
     throw e;
   }
 }
+
+// GitHub token management functions
+export async function saveGithubToken(token) {
+  try {
+    appLogger.info('GITHUB_TOKEN', 'Saving GitHub token securely');
+    const response = await fetch(`${BACKEND_URL}/config/github/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+
+    const result = await response.json();
+    appLogger.success('GITHUB_TOKEN', 'GitHub token saved successfully');
+    return result;
+  } catch (e) {
+    appLogger.error('GITHUB_TOKEN', 'Error saving GitHub token', { error: e.message });
+    throw e;
+  }
+}
+
+export async function checkGithubTokenExists() {
+  try {
+    const response = await fetch(`${BACKEND_URL}/config/github/token/exists`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+
+    const result = await response.json();
+    return result.exists;
+  } catch (e) {
+    appLogger.error('GITHUB_TOKEN', 'Error checking GitHub token existence', { error: e.message });
+    return false;
+  }
+}
+
+export async function deleteGithubToken() {
+  try {
+    appLogger.info('GITHUB_TOKEN', 'Deleting GitHub token');
+    const response = await fetch(`${BACKEND_URL}/config/github/token`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+
+    const result = await response.json();
+    appLogger.success('GITHUB_TOKEN', 'GitHub token deleted successfully');
+    return result;
+  } catch (e) {
+    appLogger.error('GITHUB_TOKEN', 'Error deleting GitHub token', { error: e.message });
+    throw e;
+  }
+}
+
+export async function saveGithubConfig(config) {
+  try {
+    appLogger.info('GITHUB_CONFIG', 'Saving GitHub configuration', { config });
+    const response = await fetch(`${BACKEND_URL}${CONFIG_API_PATH}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        github: {
+          repo_url: config.repo_url || "",
+          branch: config.branch || "main"
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+
+    const result = await response.json();
+    appLogger.success('GITHUB_CONFIG', 'GitHub configuration saved successfully');
+    return result;
+  } catch (e) {
+    appLogger.error('GITHUB_CONFIG', 'Error saving GitHub configuration', { error: e.message });
+    throw e;
+  }
+}

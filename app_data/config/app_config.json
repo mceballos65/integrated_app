@@ -14,19 +14,19 @@
     "admin_password_hash": ""
   },
   "github": {
-    "token": "",
     "repo_url": "",
-    "branch": "main",
+    "branch": "main-2",
     "repositoryUrl": "",
     "branchName": "",
     "localPath": "./app_data/config/",
-    "githubUsername": ""
+    "githubUsername": "",
+    "token": ""
   },
   "edited_configs": {
     "backend": true,
     "app": true,
     "security": true,
-    "github": false,
+    "github": true,
     "logging": true,
     "user_management": false,
     "users": true

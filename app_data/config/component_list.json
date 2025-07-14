@@ -19,14 +19,14 @@
       "name": "AIX Server",
       "value": "aix",
       "description": "This is a component for AIX Server",
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "network",
       "name": "Network",
       "value": "network",
       "description": "This is the component for network devices",
-      "enabled": false
+      "enabled": true
     }
   ]
 }
