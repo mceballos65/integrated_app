@@ -171,7 +171,7 @@ export default function ConfigurationPage() {
       const directGithubToken = config?.github?.token || "";
       const directGithubUsername = config?.github?.githubUsername || "";
       const directGithubRepoUrl = config?.github?.repositoryUrl || "";
-      const directGithubBranch = config?.github?.branch || "main";
+      const directGithubBranch = config?.github?.branchName || "main";
       const directDebugRequiresAuth = config?.security?.debug_requires_auth || false;
       
       // Actualizar localStorage para mantener consistencia
@@ -1409,7 +1409,7 @@ function GitHubConfigPanel({
     try {
       const config = {
         repositoryUrl: localRepositoryUrl,
-        branch: localBranchName || "main",
+        branchName: localBranchName || "main",
         githubUsername: localGithubUsername
       };
 

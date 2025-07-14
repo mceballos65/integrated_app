@@ -382,7 +382,7 @@ export async function saveGithubConfig(config) {
       body: JSON.stringify({
         github: {
           repositoryUrl: config.repositoryUrl || "",
-          branch: config.branch || "main",
+          branchName: config.branchName || "main",
           githubUsername: config.githubUsername || ""
         }
       }),

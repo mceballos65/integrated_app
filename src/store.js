@@ -28,7 +28,7 @@ const defaultConfig = {
   github: {
     token: "",
     repositoryUrl: "",
-    branch: "main",
+    branchName: "main",
     githubUsername: ""
   }
 };
@@ -64,7 +64,7 @@ const useConfigStore = create((set, get) => ({
   get adminUsername() { return get().config?.security?.admin_username || ""; },
   get githubToken() { return get().config?.github?.token || ""; },
   get githubRepoUrl() { return get().config?.github?.repositoryUrl || ""; },
-  get githubBranch() { return get().config?.github?.branch || "main"; },
+  get githubBranch() { return get().config?.github?.branchName || "main"; },
 
   // Actions
   checkConfigExists: async () => {
