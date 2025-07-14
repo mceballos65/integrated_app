@@ -323,6 +323,65 @@ def decrypt_string(encrypted_text: str) -> str:
         print(f"Error decrypting string: {e}")
         return encrypted_text  # Return original text if decryption fails
 
+# GitHub Token Management Functions
+def save_github_token(token: str) -> bool:
+    """Save GitHub token in encrypted storage"""
+    try:
+        data = decrypt_data()
+        if "github_token" not in data:
+            data["github_token"] = {}
+        
+        # Encrypt the token before storing
+        encrypted_token = encrypt_string(token)
+        data["github_token"]["token"] = encrypted_token
+        data["github_token"]["updated_at"] = datetime.now().isoformat()
+        
+        save_users_data(data)
+        print("GitHub token saved securely")
+        return True
+    except Exception as e:
+        print(f"Error saving GitHub token: {e}")
+        return False
+
+def get_github_token() -> str:
+    """Get GitHub token from encrypted storage"""
+    try:
+        data = decrypt_data()
+        github_data = data.get("github_token", {})
+        encrypted_token = github_data.get("token", "")
+        
+        if not encrypted_token:
+            return ""
+        
+        # Decrypt the token
+        decrypted_token = decrypt_string(encrypted_token)
+        return decrypted_token
+    except Exception as e:
+        print(f"Error getting GitHub token: {e}")
+        return ""
+
+def delete_github_token() -> bool:
+    """Delete GitHub token from encrypted storage"""
+    try:
+        data = decrypt_data()
+        if "github_token" in data:
+            del data["github_token"]
+            save_users_data(data)
+            print("GitHub token deleted")
+        return True
+    except Exception as e:
+        print(f"Error deleting GitHub token: {e}")
+        return False
+
+def github_token_exists() -> bool:
+    """Check if GitHub token exists in encrypted storage"""
+    try:
+        token = get_github_token()
+        return bool(token and token.strip())
+    except Exception as e:
+        print(f"Error checking GitHub token existence: {e}")
+        return False
+
 # Initialize encryption on import
 if __name__ == "__main__":
     # Test the encryption system

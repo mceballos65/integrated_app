@@ -35,7 +35,11 @@ from user_encryption import (
     verify_password,
     initialize_default_users,
     get_all_users,
-    create_user
+    create_user,
+    save_github_token,
+    get_github_token,
+    delete_github_token,
+    github_token_exists
 )
 
 # Importar config_handler para los nuevos endpoints
@@ -188,52 +192,26 @@ def get_default_config():
 
 def config_exists():
     """Check if config.json exists"""
-    return os.path.exists(CONFIG_FILE_PATH)
+    return config_handler.config_exists(config_handler.DEFAULT_CONFIG_FILENAME)
 
 def load_config():
-    """Load configuration from config.json with encryption for sensitive data"""
+    """Load configuration from config.json (tokens managed separately)"""
     try:
-        if not config_exists():
-            return None
-        
-        with open(CONFIG_FILE_PATH, 'r', encoding='utf-8') as f:
-            config_data = json.load(f)
-        
-        # Decrypt sensitive data (GitHub token) if it exists and is encrypted
-        if config_data.get("github", {}).get("githubToken"):
-            try:
-                # Try to decrypt the token (if it's encrypted)
-                from user_encryption import decrypt_string
-                encrypted_token = config_data["github"]["githubToken"]
-                config_data["github"]["githubToken"] = decrypt_string(encrypted_token)
-            except:
-                # If decryption fails, assume it's plain text (backward compatibility)
-                pass
-        
-        return config_data
+        config = config_handler.load_config(config_handler.DEFAULT_CONFIG_FILENAME)
+        # Ensure no tokens are returned from this function
+        if config and "github" in config:
+            config["github"].pop("githubToken", None)
+            config["github"].pop("token", None)
+        return config
     except Exception as e:
         print(f"Error loading config: {e}")
         return None
 
 def save_config(config_data):
-    """Save configuration to config.json with encryption for sensitive data"""
+    """Save configuration to config.json (tokens managed separately)"""
     try:
-        # Make a copy to avoid modifying the original
-        config_to_save = config_data.copy()
-        
-        # Encrypt sensitive data (GitHub token) before saving
-        if config_to_save.get("github", {}).get("githubToken"):
-            try:
-                from user_encryption import encrypt_string
-                plain_token = config_to_save["github"]["githubToken"]
-                config_to_save["github"]["githubToken"] = encrypt_string(plain_token)
-            except Exception as e:
-                print(f"Warning: Could not encrypt GitHub token: {e}")
-                # Continue with plain text if encryption fails
-        
-        with open(CONFIG_FILE_PATH, 'w', encoding='utf-8') as f:
-            json.dump(config_to_save, f, indent=2, ensure_ascii=False)
-        
+        # Use config_handler which automatically sanitizes tokens
+        saved_config = config_handler.save_config(config_data, config_handler.DEFAULT_CONFIG_FILENAME)
         return True
     except Exception as e:
         print(f"Error saving config: {e}")
@@ -245,12 +223,22 @@ def get_github_config():
     if not config or not config.get("github"):
         return None
     
-    github_config = config["github"]
+    github_config = config["github"].copy()
+    
+    # Get the encrypted token from secure storage
+    encrypted_token = get_github_token()
+    if not encrypted_token:
+        print("No GitHub token found in encrypted storage")
+        return None
+    
+    # Add the token to the config (this is only in memory, never saved to file)
+    github_config["githubToken"] = encrypted_token
     
     # Validate required fields
     required_fields = ["githubToken", "githubUsername", "repositoryUrl", "branchName", "localPath"]
     for field in required_fields:
         if not github_config.get(field):
+            print(f"Missing required GitHub config field: {field}")
             return None
     
     return github_config
@@ -882,7 +870,11 @@ async def load_config_endpoint(file: str = Query(config_handler.DEFAULT_CONFIG_F
     try:
         config = config_handler.load_config(file)
         is_default = not config_handler.config_exists(file)
-        return {"config": config, "is_default": is_default}
+        
+        # Sanitize response to add hasToken flag and remove any token fields
+        sanitized_config = sanitize_config_response(config)
+        
+        return {"config": sanitized_config, "is_default": is_default}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading config: {str(e)}")
 
@@ -890,8 +882,28 @@ async def load_config_endpoint(file: str = Query(config_handler.DEFAULT_CONFIG_F
 async def save_config_endpoint(config_update: Dict[str, Any], file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
     """Guarda la configuración completa en un archivo específico"""
     try:
+        # Handle GitHub token separately if provided
+        github_token = None
+        if "github" in config_update and "githubToken" in config_update["github"]:
+            github_token = config_update["github"]["githubToken"]
+            # Remove token from config_update to prevent storage in config file
+            del config_update["github"]["githubToken"]
+        
+        # Save main config (without token)
         config = config_handler.save_config(config_update, file)
-        return {"config": config}
+        
+        # Handle GitHub token securely if provided
+        if github_token:
+            if github_token.strip():  # Only save non-empty tokens
+                save_github_token(github_token.strip())
+            else:
+                # Empty token means delete existing token
+                delete_github_token()
+        
+        # Sanitize response
+        sanitized_config = sanitize_config_response(config)
+        
+        return {"config": sanitized_config}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving config: {str(e)}")
 
@@ -899,8 +911,31 @@ async def save_config_endpoint(config_update: Dict[str, Any], file: str = Query(
 async def update_config_endpoint(config_update: Dict[str, Any], file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
     """Actualiza parcialmente la configuración existente"""
     try:
+        # Handle GitHub token separately if provided
+        github_token = None
+        if "github" in config_update and "githubToken" in config_update["github"]:
+            github_token = config_update["github"]["githubToken"]
+            # Remove token from config_update to prevent storage in config file
+            del config_update["github"]["githubToken"]
+            # If github section is now empty, remove it entirely
+            if not config_update["github"]:
+                del config_update["github"]
+        
+        # Update main config (without token)
         config = config_handler.update_config(config_update, file)
-        return {"config": config}
+        
+        # Handle GitHub token securely if provided
+        if github_token:
+            if github_token.strip():  # Only save non-empty tokens
+                save_github_token(github_token.strip())
+            else:
+                # Empty token means delete existing token
+                delete_github_token()
+        
+        # Remove any potential token fields from response and add hasToken flag
+        response_config = sanitize_config_response(config)
+        
+        return {"config": response_config}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating config: {str(e)}")
 
@@ -908,8 +943,28 @@ async def update_config_endpoint(config_update: Dict[str, Any], file: str = Quer
 async def replace_config_endpoint(config_update: Dict[str, Any], file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
     """Reemplaza completamente la configuración existente"""
     try:
+        # Handle GitHub token separately if provided
+        github_token = None
+        if "github" in config_update and "githubToken" in config_update["github"]:
+            github_token = config_update["github"]["githubToken"]
+            # Remove token from config_update to prevent storage in config file
+            del config_update["github"]["githubToken"]
+        
+        # Replace main config (without token)
         config = config_handler.save_config(config_update, file)
-        return {"config": config}
+        
+        # Handle GitHub token securely if provided
+        if github_token:
+            if github_token.strip():  # Only save non-empty tokens
+                save_github_token(github_token.strip())
+            else:
+                # Empty token means delete existing token
+                delete_github_token()
+        
+        # Remove any potential token fields from response and add hasToken flag
+        response_config = sanitize_config_response(config)
+        
+        return {"config": response_config}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error replacing config: {str(e)}")
 
@@ -2014,3 +2069,92 @@ async def toggle_component(component_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error toggling component: {str(e)}")
+
+def sanitize_config_response(config):
+    """Remove GitHub tokens from config response and add hasToken flag"""
+    import copy
+    sanitized_config = copy.deepcopy(config)
+    
+    # Handle GitHub section
+    if "github" in sanitized_config:
+        # Add hasToken flag
+        sanitized_config["github"]["hasToken"] = github_token_exists()
+        # Remove any token field that might exist
+        sanitized_config["github"].pop("githubToken", None)
+        sanitized_config["github"].pop("token", None)
+    
+    return sanitized_config
+
+@app.patch("/api/config/update")
+async def update_config_endpoint(config_update: Dict[str, Any], file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
+    """Actualiza parcialmente la configuración existente"""
+    try:
+        config = config_handler.update_config(config_update, file)
+        
+        # Sanitize response
+        sanitized_config = sanitize_config_response(config)
+        
+        return {"config": sanitized_config}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating config: {str(e)}")
+
+# ========================================
+# GITHUB TOKEN MANAGEMENT ENDPOINTS
+# ========================================
+
+class GitHubTokenRequest(BaseModel):
+    token: str
+
+@app.post("/config/github/token")
+async def save_github_token_endpoint(token_request: GitHubTokenRequest):
+    """Save GitHub token securely in encrypted storage"""
+    try:
+        token = token_request.token.strip()
+        if not token:
+            raise HTTPException(status_code=400, detail="Token cannot be empty")
+        
+        success = save_github_token(token)
+        if success:
+            return {
+                "success": True,
+                "message": "GitHub token saved securely",
+                "hasToken": True
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to save GitHub token")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving GitHub token: {str(e)}")
+
+@app.get("/config/github/token/exists")
+async def check_github_token_exists():
+    """Check if GitHub token exists in encrypted storage"""
+    try:
+        exists = github_token_exists()
+        return {
+            "hasToken": exists,
+            "message": "Token exists" if exists else "No token found"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking GitHub token: {str(e)}")
+
+@app.delete("/config/github/token")
+async def delete_github_token_endpoint():
+    """Delete GitHub token from encrypted storage"""
+    try:
+        success = delete_github_token()
+        if success:
+            return {
+                "success": True,
+                "message": "GitHub token deleted successfully",
+                "hasToken": False
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to delete GitHub token")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting GitHub token: {str(e)}")
+
+# ========================================

@@ -73,16 +73,35 @@ def load_config(filename: str) -> Dict[str, Any]:
         print(f"Error loading config from {filename}: {str(e)}")
         return DEFAULT_CONFIG
 
+def sanitize_config_for_storage(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Remove GitHub tokens from config before storage to prevent plaintext storage"""
+    import copy
+    sanitized_config = copy.deepcopy(config)
+    
+    # Remove any GitHub tokens to prevent plaintext storage
+    if "github" in sanitized_config:
+        # Remove any token fields that might exist
+        sanitized_config["github"].pop("githubToken", None)
+        sanitized_config["github"].pop("token", None)
+        # Keep empty string for backward compatibility
+        if "token" not in sanitized_config["github"]:
+            sanitized_config["github"]["token"] = ""
+    
+    return sanitized_config
+
 def save_config(config: Dict[str, Any], filename: str) -> Dict[str, Any]:
     """Guarda la configuración en un archivo JSON"""
     # Ensure directories exist
     ensure_directories()
     
+    # Sanitize config to remove any tokens before storage
+    sanitized_config = sanitize_config_for_storage(config)
+    
     config_path = get_config_path(filename)
     try:
         with open(config_path, 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=2)
-        return config
+            json.dump(sanitized_config, f, indent=2)
+        return sanitized_config
     except Exception as e:
         print(f"Error saving config to {filename}: {str(e)}")
         raise e

@@ -1,0 +1,34 @@
+{
+  "app": {
+    "prediction_url": "http://localhost:8000",
+    "account_code": "ACM"
+  },
+  "logging": {
+    "file_location": "./app_data/logs/predictions.log",
+    "max_entries": 50000
+  },
+  "security": {
+    "admin_user_disabled": true,
+    "debug_requires_auth": true,
+    "admin_username": "",
+    "admin_password_hash": ""
+  },
+  "github": {
+    "token": "",
+    "repo_url": "",
+    "branch": "main",
+    "repositoryUrl": "",
+    "branchName": "",
+    "localPath": "./app_data/config/",
+    "githubUsername": ""
+  },
+  "edited_configs": {
+    "backend": true,
+    "app": true,
+    "security": true,
+    "github": false,
+    "logging": true,
+    "user_management": false,
+    "users": true
+  }
+}
