@@ -16,7 +16,12 @@
   "github": {
     "token": "",
     "repo_url": "",
-    "branch": "main"
+    "branch": "main",
+    "githubToken": "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",
+    "repositoryUrl": "https://github.com/mceballos65/integrated_app.git",
+    "branchName": "ACM_config_data",
+    "localPath": "./app_data/config/",
+    "githubUsername": "mceballos65@hotmail.com"
   },
   "edited_configs": {
     "backend": true,
