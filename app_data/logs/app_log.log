@@ -1213,3 +1213,5 @@
 2025-07-14 20:24:00 [INFO] APP_STARTUP: Attempting to connect to backend - {"backendUrl": "http://localhost:8000", "user": "anonymous", "session": "session_1752498511877_bah1h386v"}
 2025-07-14 20:24:00 [SUCCESS] APP_STARTUP: Application configuration loaded from backend successfully - {"user": "anonymous", "session": "session_1752498511877_bah1h386v"}
 2025-07-14 20:24:00 [SUCCESS] APP_STARTUP: Application configuration loaded from backend successfully - {"user": "anonymous", "session": "session_1752498511877_bah1h386v"}
+2025-07-14 20:24:25 [INFO] GIT_ACTION: Attempting git push - {"endpoint": "/git/push", "user": "anonymous", "session": "session_1752498511877_bah1h386v"}
+2025-07-14 20:24:28 [ERROR] GIT_ACTION: Git push failed - {"error": "error: src refspec main-2 does not match any\nerror: failed to push some refs to 'https://hotmail.com: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@github.com/mceballos65/integrated_app.git'\n", "user": "anonymous", "session": "session_1752498511877_bah1h386v"}

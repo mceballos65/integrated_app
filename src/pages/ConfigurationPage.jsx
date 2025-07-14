@@ -1475,10 +1475,10 @@ function GitHubConfigPanel({
             value={localGithubUsername}
             onChange={(e) => setLocalGithubUsername(e.target.value)}
             className="w-full border border-gray-300 rounded px-3 py-2"
-            placeholder="your-github-username"
+            placeholder="your-github-username (not email)"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Your GitHub username for git operations
+            Your GitHub username (e.g., mceballos65) - NOT your email address
           </p>
         </div>
 
