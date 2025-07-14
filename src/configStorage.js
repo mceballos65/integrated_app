@@ -381,8 +381,9 @@ export async function saveGithubConfig(config) {
       },
       body: JSON.stringify({
         github: {
-          repo_url: config.repo_url || "",
-          branch: config.branch || "main"
+          repositoryUrl: config.repositoryUrl || "",
+          branch: config.branch || "main",
+          githubUsername: config.githubUsername || ""
         }
       }),
     });

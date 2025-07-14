@@ -170,7 +170,7 @@ export default function ConfigurationPage() {
       const directAccountCode = config?.app?.account_code || "";
       const directGithubToken = config?.github?.token || "";
       const directGithubUsername = config?.github?.githubUsername || "";
-      const directGithubRepoUrl = config?.github?.repo_url || "";
+      const directGithubRepoUrl = config?.github?.repositoryUrl || "";
       const directGithubBranch = config?.github?.branch || "main";
       const directDebugRequiresAuth = config?.security?.debug_requires_auth || false;
       
@@ -1408,7 +1408,7 @@ function GitHubConfigPanel({
   const handleSaveGithubConfig = async () => {
     try {
       const config = {
-        repo_url: localRepositoryUrl,
+        repositoryUrl: localRepositoryUrl,
         branch: localBranchName || "main",
         githubUsername: localGithubUsername
       };

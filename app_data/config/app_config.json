@@ -14,9 +14,8 @@
     "admin_password_hash": ""
   },
   "github": {
-    "repo_url": "https://github.com/mceballos65/integrated_app.git",
+    "repositoryUrl": "https://github.com/mceballos65/integrated_app.git",
     "branch": "main-2",
-    "repositoryUrl": "",
     "branchName": "",
     "localPath": "./app_data/config/",
     "githubUsername": "mceballos65@hotmail.com",
