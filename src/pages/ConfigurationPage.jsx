@@ -169,6 +169,7 @@ export default function ConfigurationPage() {
       const directPredictionUrl = config?.app?.prediction_url || "";
       const directAccountCode = config?.app?.account_code || "";
       const directGithubToken = config?.github?.token || "";
+      const directGithubUsername = config?.github?.githubUsername || "";
       const directGithubRepoUrl = config?.github?.repo_url || "";
       const directGithubBranch = config?.github?.branch || "main";
       const directDebugRequiresAuth = config?.security?.debug_requires_auth || false;
@@ -180,6 +181,7 @@ export default function ConfigurationPage() {
         directPredictionUrl,
         directAccountCode,
         directGithubToken,
+        directGithubUsername,
         directGithubRepoUrl,
         directGithubBranch
       });
@@ -188,6 +190,7 @@ export default function ConfigurationPage() {
       setLocalAccountCode(directAccountCode);
       // Never load the token into the frontend for security reasons
       // setLocalGithubToken(directGithubToken);
+      setLocalGithubUsername(directGithubUsername);
       setLocalRepositoryUrl(directGithubRepoUrl);
       setLocalBranchName(directGithubBranch);
       
@@ -659,6 +662,8 @@ export default function ConfigurationPage() {
           {activePanel === "github" && <GitHubConfigPanel 
             localGithubToken={localGithubToken}
             setLocalGithubToken={setLocalGithubToken}
+            localGithubUsername={localGithubUsername}
+            setLocalGithubUsername={setLocalGithubUsername}
             localRepositoryUrl={localRepositoryUrl}
             setLocalRepositoryUrl={setLocalRepositoryUrl}
             localBranchName={localBranchName}
@@ -1381,6 +1386,8 @@ function LogConfigPanel() {
 function GitHubConfigPanel({ 
   localGithubToken, 
   setLocalGithubToken, 
+  localGithubUsername,
+  setLocalGithubUsername,
   localRepositoryUrl, 
   setLocalRepositoryUrl, 
   localBranchName, 
@@ -1402,7 +1409,8 @@ function GitHubConfigPanel({
     try {
       const config = {
         repo_url: localRepositoryUrl,
-        branch: localBranchName || "main"
+        branch: localBranchName || "main",
+        githubUsername: localGithubUsername
       };
 
       // Use the store function to save both config and token
@@ -1457,6 +1465,20 @@ function GitHubConfigPanel({
               ? "Personal access token is securely stored. Enter a new token to update it." 
               : "Personal access token for GitHub API access"
             }
+          </p>
+        </div>
+
+        <div>
+          <label className="block font-semibold mb-1">GitHub Username</label>
+          <input
+            type="text"
+            value={localGithubUsername}
+            onChange={(e) => setLocalGithubUsername(e.target.value)}
+            className="w-full border border-gray-300 rounded px-3 py-2"
+            placeholder="your-github-username"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Your GitHub username for git operations
           </p>
         </div>
 

@@ -422,3 +422,5 @@
 2025-07-14 13:32:33,164 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
 2025-07-14 13:35:04,738 - Use pytorch device_name: cpu
 2025-07-14 13:35:04,739 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 14:05:10,564 - Use pytorch device_name: cpu
+2025-07-14 14:05:10,565 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
