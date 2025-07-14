@@ -357,3 +357,5 @@
 2025-07-14 12:39:50,045 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
 2025-07-14 12:47:09,361 - Use pytorch device_name: cpu
 2025-07-14 12:47:09,362 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 12:51:18,512 - Use pytorch device_name: cpu
+2025-07-14 12:51:18,513 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
