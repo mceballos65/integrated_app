@@ -6,6 +6,7 @@ import useComponents from "../hooks/useComponents.jsx";
 import userApiService from "../services/userApi";
 import { getBackendUrl, setBackendUrl, markSetupCompleted } from "../configStorage";
 import appLogger from "../services/appLogger";
+import UserManagementSection from "../components/UserManagementSection.jsx";
 
 export default function ConfigurationPage() {
   const [searchParams] = useSearchParams();
@@ -1793,9 +1794,9 @@ function ComponentsPanel({ showStatusMessage }) {
       <div className="bg-blue-50 border border-blue-200 rounded p-4">
         <h4 className="font-semibold text-blue-800 mb-2">ℹ️ Information</h4>
         <ul className="text-sm text-blue-700 space-y-1">
-          <li>• Components are used in prediction matching and test matching pages</li>
-          <li>• Only enabled components will be available in dropdown selectors</li>
-          <li>• Component values should be unique and use lowercase with hyphens</li>
+          <li>• Components are used in AI matchers creationg and test matching pages</li>
+          <li>• Only enabled components will be available for selection</li>
+          <li>• Component values should be created matching the component sent by the monitoring tool</li>          
           <li>• Changes take effect immediately across the application</li>
         </ul>
       </div>

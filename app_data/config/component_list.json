@@ -1,0 +1,32 @@
+{
+  "components": [
+    {
+      "id": "windows",
+      "name": "Windows",
+      "value": "windows",
+      "description": "Windows operating system components",
+      "enabled": true
+    },
+    {
+      "id": "linux",
+      "name": "Linux",
+      "value": "linux",
+      "description": "Linux operating system components",
+      "enabled": true
+    },
+    {
+      "id": "network",
+      "name": "Network",
+      "value": "network",
+      "description": "Network infrastructure components",
+      "enabled": true
+    },
+    {
+      "id": "aix",
+      "name": "AIX Server",
+      "value": "aix",
+      "description": "This is a component for AIX Server",
+      "enabled": true
+    }
+  ]
+}

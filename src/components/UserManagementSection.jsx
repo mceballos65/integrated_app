@@ -11,7 +11,7 @@ const UserManagementSection = () => {
     users,
     loading,
     error,
-    fetchUsers,
+    loadUsers,
     createUser,
     updateUser,
     deleteUser,
@@ -45,8 +45,8 @@ const UserManagementSection = () => {
   const [message, setMessage] = useState({ text: '', type: '' });
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    loadUsers();
+  }, [loadUsers]);
 
   const showMessage = (text, type = 'info') => {
     setMessage({ text, type });
@@ -273,9 +273,6 @@ const UserManagementSection = () => {
                     )}
                     {user.username === 'admin' && (
                       <>
-                        <span className="px-2 py-1 rounded text-xs bg-purple-100 text-purple-800">
-                          Admin
-                        </span>
                         {adminUserDisabled && (
                           <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-800">
                             Security Blocked

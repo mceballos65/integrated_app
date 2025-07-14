@@ -54,6 +54,7 @@ export default function PredictionPage() {
   const [newItem, setNewItem] = useState({ ...defaultItem });
   const [statusMessage, setStatusMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [componentFilter, setComponentFilter] = useState("all"); // New component filter
   const [statusFilter, setStatusFilter] = useState("all"); // "all", "enabled", or "disabled"
   const [disabledMatchers, setDisabledMatchers] = useState([]);
   const [loadingMatcherStatus, setLoadingMatcherStatus] = useState(false);
@@ -159,6 +160,13 @@ export default function PredictionPage() {
         item.playbook?.toLowerCase().includes(term))
     );
     
+    // Apply component filter
+    if (componentFilter !== "all") {
+      filtered = filtered.filter(item => 
+        item.component === componentFilter
+      );
+    }
+    
     // Apply status filter
     if (statusFilter !== "all") {
       const isDisabled = statusFilter === "disabled";
@@ -168,7 +176,7 @@ export default function PredictionPage() {
     }
     
     setFilteredItems(filtered);
-  }, [searchTerm, items, statusFilter, disabledMatchers]);
+  }, [searchTerm, items, componentFilter, statusFilter, disabledMatchers]);
 
   const handleSelect = (item) => {
     setSelectedId(item.id);
@@ -286,8 +294,9 @@ export default function PredictionPage() {
           <h2 className="text-xl font-bold text-kyndryl-orange">Prediction Matchers</h2>
         </div>
 
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-col gap-3 mb-4">
+          {/* Search bar */}
+          <div className="flex items-center gap-2 w-full">
             <span className="text-gray-500">🔍</span>
             <input
               type="text"
@@ -299,24 +308,13 @@ export default function PredictionPage() {
             />
           </div>
           
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-700 whitespace-nowrap">Status:</span>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1 bg-white"
-              >
-                <option value="all">All</option>
-                <option value="enabled">Enabled</option>
-                <option value="disabled">Disabled</option>
-              </select>
-            </div>
-            
-            <div className="flex gap-2 ml-auto">
+          {/* Buttons and Filters in one row */}
+          <div className="flex justify-between items-center gap-3">
+            {/* Buttons on the left */}
+            <div className="flex gap-2">
               <button
                 onClick={fetchItems}
-                className="bg-gray-200 text-black px-3 py-1 rounded hover:bg-gray-300"
+                className="bg-gray-200 text-black px-3 py-1 rounded hover:bg-gray-300 whitespace-nowrap"
               >
                 Refresh
               </button>
@@ -326,13 +324,59 @@ export default function PredictionPage() {
                   setSelectedId(null);
                   setEditedItem(null);
                 }}
-                className="bg-kyndryl-orange text-white px-3 py-1 rounded hover:bg-orange-600"
+                className="bg-kyndryl-orange text-white px-3 py-1 rounded hover:bg-orange-600 whitespace-nowrap"
               >
                 Add New
               </button>
             </div>
+            
+            {/* Filters on the right */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-700 whitespace-nowrap text-sm">Component:</span>
+                <select
+                  value={componentFilter}
+                  onChange={(e) => setComponentFilter(e.target.value)}
+                  className="border border-gray-300 rounded px-2 py-1 bg-white text-sm min-w-[120px]"
+                >
+                  <option value="all">All</option>
+                  {/* Get unique components from items */}
+                  {[...new Set(items.map(item => item.component).filter(Boolean))].sort().map(component => (
+                    <option key={component} value={component}>{component}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-gray-700 whitespace-nowrap text-sm">Status:</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="border border-gray-300 rounded px-2 py-1 bg-white text-sm"
+                >
+                  <option value="all">All</option>
+                  <option value="enabled">Enabled</option>
+                  <option value="disabled">Disabled</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Filter indicator */}
+        {(searchTerm || componentFilter !== "all" || statusFilter !== "all") && (
+          <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="text-sm text-blue-800">
+              <span className="font-medium">Active filters:</span>
+              {searchTerm && <span className="ml-2 bg-blue-100 px-2 py-1 rounded">Search: "{searchTerm}"</span>}
+              {componentFilter !== "all" && <span className="ml-2 bg-blue-100 px-2 py-1 rounded">Component: {componentFilter}</span>}
+              {statusFilter !== "all" && <span className="ml-2 bg-blue-100 px-2 py-1 rounded">Status: {statusFilter}</span>}
+            </div>
+            <div className="text-xs text-blue-600 mt-1">
+              Showing {filteredItems.length} of {items.length} items
+            </div>
+          </div>
+        )}
 
         <div className="overflow-y-auto flex-1 pr-1">
           <ul className="space-y-2">

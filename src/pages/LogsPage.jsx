@@ -440,23 +440,23 @@ export default function LogsPage() {
 
   const getLevelColor = (level) => {
     switch (level?.toUpperCase()) {
-      case 'ERROR': return 'bg-red-100 text-red-800 border border-red-200';
-      case 'WARNING': case 'WARN': return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
-      case 'INFO': return 'bg-blue-100 text-blue-800 border border-blue-200';
-      case 'SUCCESS': return 'bg-green-100 text-green-800 border border-green-200';
-      case 'DEBUG': return 'bg-gray-100 text-gray-700 border border-gray-200';
-      default: return 'bg-gray-100 text-gray-800 border border-gray-200';
+      case 'ERROR': return 'bg-red-100 text-kyndryl-red border border-red-200';
+      case 'WARNING': case 'WARN': return 'bg-orange-100 text-kyndryl-orange border border-orange-200';
+      case 'INFO': return 'bg-blue-100 text-kyndryl-blue border border-blue-200';
+      case 'SUCCESS': return 'bg-green-100 text-kyndryl-green border border-green-200';
+      case 'DEBUG': return 'bg-kyndryl-lightGray text-kyndryl-darkGray border border-kyndryl-gray';
+      default: return 'bg-kyndryl-lightGray text-kyndryl-darkGray border border-kyndryl-gray';
     }
   };
 
   const getCategoryColor = (category) => {
     switch (category) {
-      case 'CONFIG_CHANGE': return 'bg-blue-100 text-blue-800';
-      case 'USER_ACTION': return 'bg-green-100 text-green-800';
-      case 'AUTH': return 'bg-purple-100 text-purple-800';
-      case 'SETUP': return 'bg-yellow-100 text-yellow-800';
-      case 'ERROR': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'CONFIG_CHANGE': return 'bg-blue-100 text-kyndryl-blue';
+      case 'USER_ACTION': return 'bg-green-100 text-kyndryl-green';
+      case 'AUTH': return 'bg-blue-100 text-kyndryl-blue';
+      case 'SETUP': return 'bg-orange-100 text-kyndryl-orange';
+      case 'ERROR': return 'bg-red-100 text-kyndryl-red';
+      default: return 'bg-kyndryl-lightGray text-kyndryl-darkGray';
     }
   };
 
@@ -482,27 +482,27 @@ export default function LogsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-kyndryl-lightGray to-gray-100 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">System Logs</h1>
+              <h1 className="text-3xl font-bold text-kyndryl-darkGray">System Logs</h1>
               <p className="text-gray-600 mt-1">Monitor prediction activities and application events</p>
             </div>
             <button
               onClick={handleRefresh}
               disabled={loadingPredictionLogs || loadingApplicationLogs}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+              className="bg-kyndryl-orange text-white px-6 py-2 rounded-lg hover:bg-red-600 disabled:bg-gray-400 transition-colors"
             >
               {(loadingPredictionLogs || loadingApplicationLogs) ? "Loading..." : "Refresh"}
             </button>
           </div>
           
           {statusMessage && (
-            <div className="mt-4 p-3 bg-blue-100 border border-blue-300 rounded-lg">
-              <p className="text-blue-700">{statusMessage}</p>
+            <div className="mt-4 p-3 bg-kyndryl-lightGray border border-kyndryl-orange rounded-lg">
+              <p className="text-kyndryl-darkGray">{statusMessage}</p>
             </div>
           )}
         </div>
@@ -513,7 +513,7 @@ export default function LogsPage() {
           {/* Left Column: Prediction Logs */}
           <div className="bg-white rounded-lg shadow-md flex flex-col">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">Backend Logs</h2>
+              <h2 className="text-xl font-semibold text-kyndryl-darkGray mb-4">Backend Logs</h2>
               
               {/* Search and Filter Controls */}
               <div className="flex flex-col gap-4 mb-4">
@@ -525,13 +525,13 @@ export default function LogsPage() {
                       placeholder="Search logs..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kyndryl-orange focus:border-transparent"
                     />
                   </div>
                   <select
                     value={sortOrder}
                     onChange={(e) => setSortOrder(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kyndryl-orange focus:border-transparent"
                   >
                     <option value="newest">Newest First</option>
                     <option value="oldest">Oldest First</option>
@@ -540,13 +540,13 @@ export default function LogsPage() {
                 
                 {/* Second row: Log type filter toggles */}
                 <div className="flex flex-wrap gap-2">
-                  <span className="text-sm font-medium text-gray-700 self-center">Show (filters):</span>
+                  <span className="text-sm font-medium text-kyndryl-darkGray self-center">Show (filters):</span>
                   <button
                     onClick={() => setLogTypeFilter(prev => ({...prev, predictionLogs: !prev.predictionLogs}))}
                     className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                       logTypeFilter.predictionLogs
-                        ? 'bg-kyndryl-blue text-white'
-                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                        ? 'bg-kyndryl-orange text-white'
+                        : 'bg-kyndryl-lightGray text-kyndryl-darkGray hover:bg-kyndryl-gray'
                     }`}
                   >
                     Prediction Logs
@@ -555,8 +555,8 @@ export default function LogsPage() {
                     onClick={() => setLogTypeFilter(prev => ({...prev, systemLogs: !prev.systemLogs}))}
                     className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                       logTypeFilter.systemLogs
-                        ? 'bg-kyndryl-blue text-white'
-                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                        ? 'bg-kyndryl-orange text-white'
+                        : 'bg-kyndryl-lightGray text-kyndryl-darkGray hover:bg-kyndryl-gray'
                     }`}
                   >
                     System Logs
@@ -565,7 +565,7 @@ export default function LogsPage() {
               </div>
 
               {/* Stats */}
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-kyndryl-darkGray">
                 Showing {paginatedLogs.length} of {filteredLogs.length} entries
                 {searchTerm && ` (filtered from ${predictionLogs.length} total)`}
               </div>
@@ -575,12 +575,12 @@ export default function LogsPage() {
             <div className="p-6 flex-1">
               {loadingPredictionLogs ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="text-gray-600 mt-2">Loading prediction logs...</p>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kyndryl-orange mx-auto"></div>
+                  <p className="text-kyndryl-darkGray mt-2">Loading prediction logs...</p>
                 </div>
               ) : paginatedLogs.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-600">
+                  <p className="text-kyndryl-darkGray">
                     {searchTerm ? "No logs match your search criteria" : "No prediction logs available"}
                   </p>
                 </div>
@@ -596,7 +596,7 @@ export default function LogsPage() {
                       if (log.type === "system" || log.type === "matcher_action" || log.type === "account_event" || log.type === "account_processing" || log.action === "ADD") {
                         return (
                           <div key={index} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-all duration-300">
-                            <div className="bg-gradient-to-r from-gray-600 to-gray-700 text-white p-2">
+                            <div className="bg-gradient-to-r from-kyndryl-darkGray to-kyndryl-black text-white p-2">
                               <div className="flex items-center gap-3">
                                 <div className="flex items-center gap-1">
                                   <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
@@ -706,22 +706,22 @@ export default function LogsPage() {
                                     </svg>
                                   </div>
                                   <div className="flex-1">
-                                    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Event Abstract</span>
-                                    <p className="text-gray-900 mt-1 leading-relaxed text-xs">{log.abstract}</p>
+                                    <span className="text-xs font-semibold text-kyndryl-darkGray uppercase tracking-wide">Event Abstract</span>
+                                    <p className="text-kyndryl-darkGray mt-1 leading-relaxed text-xs">{log.abstract}</p>
                                   </div>
                                 </div>
                               </div>
                               
-                              <div className="bg-white rounded-lg p-2 border-l-4 border-blue-500 shadow-sm">
+                              <div className="bg-white rounded-lg p-2 border-l-4 border-kyndryl-blue shadow-sm">
                                 <div className="flex items-start gap-2">
                                   <div className="mt-0.5">
-                                    <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-3 h-3 text-kyndryl-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                     </svg>
                                   </div>
                                   <div className="flex-1">
-                                    <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Matched Phrase</span>
-                                    <p className="text-gray-900 mt-1 leading-relaxed text-xs font-medium bg-blue-50 px-2 py-1 rounded">{log.match}</p>
+                                    <span className="text-xs font-semibold text-kyndryl-darkGray uppercase tracking-wide">Matched Phrase</span>
+                                    <p className="text-kyndryl-darkGray mt-1 leading-relaxed text-xs font-medium bg-blue-50 px-2 py-1 rounded">{log.match}</p>
                                   </div>
                                 </div>
                               </div>
@@ -736,13 +736,13 @@ export default function LogsPage() {
                                   <svg className="w-4 h-4 text-kyndryl-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                                   </svg>
-                                  <h4 className="text-sm font-bold text-gray-800">Analysis Details</h4>
+                                  <h4 className="text-sm font-bold text-kyndryl-darkGray">Analysis Details</h4>
                                 </div>
                                 
                                 {/* Score indicator */}
                                 <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200 mb-3">
                                   <div className="flex items-center justify-between mb-1">
-                                    <span className="text-xs font-semibold text-gray-600">AI Score</span>
+                                    <span className="text-xs font-semibold text-kyndryl-darkGray">AI Score</span>
                                     <div className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                                       parseFloat(log.score) >= 0.7 ? 'bg-green-100 text-green-800' :
                                       parseFloat(log.score) >= 0.5 ? 'bg-yellow-100 text-yellow-800' :
@@ -871,19 +871,19 @@ export default function LogsPage() {
                       <button
                         onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                         disabled={currentPage === 1}
-                        className="px-3 py-1 text-sm border border-gray-300 rounded disabled:bg-gray-100 disabled:text-gray-400 hover:bg-gray-50"
+                        className="px-3 py-1 text-sm border border-kyndryl-gray bg-white text-kyndryl-darkGray rounded disabled:bg-kyndryl-lightGray disabled:text-kyndryl-gray hover:bg-kyndryl-lightGray transition-colors"
                       >
                         Previous
                       </button>
                       
-                      <span className="text-sm text-gray-600">
+                      <span className="text-sm text-kyndryl-darkGray">
                         Page {currentPage} of {totalPages}
                       </span>
                       
                       <button
                         onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                         disabled={currentPage === totalPages}
-                        className="px-3 py-1 text-sm border border-gray-300 rounded disabled:bg-gray-100 disabled:text-gray-400 hover:bg-gray-50"
+                        className="px-3 py-1 text-sm border border-kyndryl-gray bg-white text-kyndryl-darkGray rounded disabled:bg-kyndryl-lightGray disabled:text-kyndryl-gray hover:bg-kyndryl-lightGray transition-colors"
                       >
                         Next
                       </button>
@@ -897,11 +897,11 @@ export default function LogsPage() {
           {/* Right Column: Application Logs */}
           <div className="bg-white rounded-lg shadow-md flex flex-col">
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800">Application Logs</h2>
-              <p className="text-sm text-gray-600 mt-1">Configuration changes, user actions, and system events</p>
+              <h2 className="text-xl font-semibold text-kyndryl-darkGray">Application Logs</h2>
+              <p className="text-sm text-kyndryl-darkGray mt-1">Configuration changes, user actions, and system events</p>
               
               {/* Stats */}
-              <div className="text-sm text-gray-600 mt-4">
+              <div className="text-sm text-kyndryl-darkGray mt-4">
                 Showing {Math.min(appLogsPerPage, applicationLogs.length - (appCurrentPage - 1) * appLogsPerPage)} of {applicationLogs.length} entries
               </div>
             </div>
@@ -910,12 +910,12 @@ export default function LogsPage() {
             <div className="p-6 flex-1">
               {loadingApplicationLogs ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="text-gray-600 mt-2">Loading application logs...</p>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kyndryl-orange mx-auto"></div>
+                  <p className="text-kyndryl-darkGray mt-2">Loading application logs...</p>
                 </div>
               ) : applicationLogs.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-gray-600">No application logs available</p>
+                  <p className="text-kyndryl-darkGray">No application logs available</p>
                 </div>
               ) : (
                 <>
@@ -926,19 +926,19 @@ export default function LogsPage() {
                     
                     return (
                       <div key={index} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-all duration-300">
-                        <div className="bg-gradient-to-r from-gray-600 to-gray-700 text-white p-2">
+                        <div className="bg-gradient-to-r from-kyndryl-darkGray to-kyndryl-black text-white p-2">
                           <div className="flex items-center gap-3">
                             <div className="flex items-center gap-1">
-                              <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                              <div className="w-2 h-2 bg-kyndryl-orange rounded-full"></div>
                               <span className="font-bold text-sm">APPLICATION</span>
                             </div>
-                            <div className="flex items-center gap-1 text-gray-300">
+                            <div className="flex items-center gap-1 text-kyndryl-lightGray">
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                               </svg>
                               <span className="text-xs">{date}</span>
                             </div>
-                            <div className="flex items-center gap-1 text-gray-300">
+                            <div className="flex items-center gap-1 text-kyndryl-lightGray">
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
@@ -953,9 +953,9 @@ export default function LogsPage() {
                           </div>
                         </div>
                         <div className="bg-white p-3">
-                          <p className="text-gray-800 text-xs font-mono leading-relaxed">{log.message}</p>
+                          <p className="text-kyndryl-darkGray text-xs font-mono leading-relaxed">{log.message}</p>
                           {log.details && (
-                            <div className="mt-1 text-xs text-gray-600 font-mono bg-gray-50 p-1 rounded border-l-2 border-gray-300">
+                            <div className="mt-1 text-xs text-kyndryl-darkGray font-mono bg-kyndryl-lightGray p-1 rounded border-l-2 border-kyndryl-gray">
                               {log.details}
                             </div>
                           )}
@@ -971,19 +971,19 @@ export default function LogsPage() {
                     <button
                       onClick={() => setAppCurrentPage(prev => Math.max(prev - 1, 1))}
                       disabled={appCurrentPage === 1}
-                      className="px-3 py-1 text-sm border border-gray-300 rounded disabled:bg-gray-100 disabled:text-gray-400 hover:bg-gray-50"
+                      className="px-3 py-1 text-sm border border-kyndryl-gray bg-white text-kyndryl-darkGray rounded disabled:bg-kyndryl-lightGray disabled:text-kyndryl-gray hover:bg-kyndryl-lightGray transition-colors"
                     >
                       Previous
                     </button>
                     
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm text-kyndryl-darkGray">
                       Page {appCurrentPage} of {Math.ceil(applicationLogs.length / appLogsPerPage)}
                     </span>
                     
                     <button
                       onClick={() => setAppCurrentPage(prev => Math.min(prev + 1, Math.ceil(applicationLogs.length / appLogsPerPage)))}
                       disabled={appCurrentPage === Math.ceil(applicationLogs.length / appLogsPerPage)}
-                      className="px-3 py-1 text-sm border border-gray-300 rounded disabled:bg-gray-100 disabled:text-gray-400 hover:bg-gray-50"
+                      className="px-3 py-1 text-sm border border-kyndryl-gray bg-white text-kyndryl-darkGray rounded disabled:bg-kyndryl-lightGray disabled:text-kyndryl-gray hover:bg-kyndryl-lightGray transition-colors"
                     >
                       Next
                     </button>
