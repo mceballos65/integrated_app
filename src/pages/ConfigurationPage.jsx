@@ -1390,22 +1390,13 @@ function GitHubConfigPanel({
   showStatusMessage,
   markConfigAsEdited 
 }) {
-  const { saveGithubSettings, checkGithubTokenExists } = useConfigStore();
-  const [tokenExists, setTokenExists] = useState(false);
+  const { saveGithubSettings, config } = useConfigStore();
+  
+  // Use hasToken from config instead of separate API call
+  const tokenExists = config?.github?.hasToken || false;
 
-  // Check if token exists when component loads
-  useEffect(() => {
-    const checkToken = async () => {
-      try {
-        const exists = await checkGithubTokenExists();
-        setTokenExists(exists);
-      } catch (error) {
-        console.error("Error checking token existence:", error);
-        setTokenExists(false);
-      }
-    };
-    checkToken();
-  }, [checkGithubTokenExists]);
+  // Debug log
+  console.log("GitHubConfigPanel - tokenExists from config:", tokenExists);
 
   const handleSaveGithubConfig = async () => {
     try {
@@ -1422,10 +1413,10 @@ function GitHubConfigPanel({
       
       showStatusMessage("GitHub configuration saved successfully!");
       
-      // Clear the token from the input for security and recheck token existence
+      // Clear the token from the input for security
       setLocalGithubToken("");
-      const exists = await checkGithubTokenExists();
-      setTokenExists(exists);
+      
+      // The tokenExists will automatically update when config reloads
       
     } catch (error) {
       console.error("Error saving GitHub configuration:", error);
