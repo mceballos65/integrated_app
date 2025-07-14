@@ -151,6 +151,8 @@ const DebugPage = () => {
     }
   };
 
+  // Removing code for creation of initial admin
+  /*
   const createAdminUser = async () => {
     // Check localStorage directly to ensure we have the latest value
     const isAdminCreationEnabled = localStorage.getItem('adminCreationEnabled') !== 'false';
@@ -190,6 +192,7 @@ const DebugPage = () => {
       userApiService.baseUrl = userApiService.baseUrl;
     }
   };
+  */
 
   const toggleAdminCreation = () => {
     const newValue = !adminCreationEnabled;
@@ -274,8 +277,8 @@ const DebugPage = () => {
     <div className="min-h-screen bg-gray-100 py-8">
       <div className="max-w-4xl mx-auto px-4">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">🔧 Debug Page</h1>
-        
-        {/* Security Warning */}
+        {/* This code is commented due to initial admin creation functionality is removed */}
+        {/* Security Warning
         {showSecurityWarning && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
             <h2 className="text-lg font-semibold text-red-800 mb-2">🔒 Security Warning</h2>
@@ -294,7 +297,7 @@ const DebugPage = () => {
               {adminCreationEnabled ? '🔒 Disable Admin Creation' : '🔓 Enable Admin Creation'}
             </button>
           </div>
-        )}
+        )} */}
         
         {/* Debug Page Access Status */}
         <div className={`border rounded-lg p-4 mb-6 ${
@@ -418,7 +421,8 @@ const DebugPage = () => {
               🔐 Test Login
             </button>
 
-            {/* Only show Create Admin button if admin creation is enabled OR user is logged in */}
+            {/* Removing code for creation of initial admin */}
+            {/*
             {(adminCreationEnabled || isUserLoggedIn) && (
               <button
                 onClick={createAdminUser}
@@ -437,6 +441,7 @@ const DebugPage = () => {
                 }
               </button>
             )}
+            */}
 
             <button
               onClick={() => window.open(`${customUrl}/docs`, '_blank')}
@@ -446,6 +451,8 @@ const DebugPage = () => {
             </button>
           </div>
           
+          {/* Removing code for creation of initial admin */}
+          {/*
           {(!adminCreationEnabled && isUserLoggedIn) && (
             <div className="mt-3 text-xs text-gray-500">
               💡 Admin creation is disabled for security. Use the toggle above to enable if needed.
@@ -457,6 +464,7 @@ const DebugPage = () => {
               ⚠️ Admin creation controls are hidden for security. Log in to manage these settings.
             </div>
           )}
+          */}
         </div>
 
         <div className="bg-white rounded-lg shadow p-6 mb-6">

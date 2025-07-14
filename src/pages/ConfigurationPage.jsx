@@ -1469,7 +1469,7 @@ function ComponentsPanel({ showStatusMessage }) {
     updateComponent, 
     removeComponent,
     toggleComponent 
-  } = useComponents();
+  } = useComponents(true); // Include disabled components for management
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingComponent, setEditingComponent] = useState(null);

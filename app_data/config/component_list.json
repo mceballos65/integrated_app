@@ -15,18 +15,18 @@
       "enabled": true
     },
     {
-      "id": "network",
-      "name": "Network",
-      "value": "network",
-      "description": "Network infrastructure components",
-      "enabled": true
-    },
-    {
       "id": "aix",
       "name": "AIX Server",
       "value": "aix",
       "description": "This is a component for AIX Server",
-      "enabled": true
+      "enabled": false
+    },
+    {
+      "id": "network",
+      "name": "Network",
+      "value": "network",
+      "description": "This is the component for network devices",
+      "enabled": false
     }
   ]
 }

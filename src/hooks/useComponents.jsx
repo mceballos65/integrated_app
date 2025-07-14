@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import useConfigStore from '../store';
 
-const useComponents = () => {
+const useComponents = (includeDisabled = false) => {
   const { config } = useConfigStore();
   const [components, setComponents] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -30,17 +30,21 @@ const useComponents = () => {
       }
       
       const data = await response.json();
-      const enabledComponents = data.components?.filter(component => component.enabled) || [];
-      setComponents(enabledComponents);
+      // If includeDisabled is true, return all components, otherwise only enabled ones
+      const filteredComponents = includeDisabled 
+        ? data.components || []
+        : data.components?.filter(component => component.enabled) || [];
+      setComponents(filteredComponents);
     } catch (err) {
       console.error('Error fetching components:', err);
       setError(err.message);
       // Fallback to default components if API call fails
-      setComponents([
+      const fallbackComponents = [
         { id: 'windows', name: 'Windows', value: 'windows', enabled: true },
         { id: 'linux', name: 'Linux', value: 'linux', enabled: true },
         { id: 'network', name: 'Network', value: 'network', enabled: true }
-      ]);
+      ];
+      setComponents(includeDisabled ? fallbackComponents : fallbackComponents.filter(c => c.enabled));
     } finally {
       setLoading(false);
     }
