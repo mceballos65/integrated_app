@@ -401,3 +401,28 @@ export async function saveGithubConfig(config) {
     throw e;
   }
 }
+
+// Utility function to sanitize config objects before logging
+function sanitizeConfigForLogging(config) {
+  if (!config) return config;
+  
+  const sanitized = JSON.parse(JSON.stringify(config)); // Deep clone
+  
+  // Remove or mask sensitive fields
+  if (sanitized.github) {
+    if (sanitized.github.token) {
+      sanitized.github.token = "***HIDDEN***";
+    }
+    if (sanitized.github.githubToken) {
+      sanitized.github.githubToken = "***HIDDEN***";
+    }
+  }
+  
+  if (sanitized.security) {
+    if (sanitized.security.admin_password_hash) {
+      sanitized.security.admin_password_hash = "***HIDDEN***";
+    }
+  }
+  
+  return sanitized;
+}

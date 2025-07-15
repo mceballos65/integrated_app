@@ -44,6 +44,7 @@ export default function ConfigurationPage() {
   const [localBranchName, setLocalBranchName] = useState("");
   const [localPath, setLocalPath] = useState("");
   const [gitStatus, setGitStatus] = useState("");
+  const [branchNotFoundError, setBranchNotFoundError] = useState(null); // New state for branch error
   const [localBackendUrl, setLocalBackendUrl] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -180,7 +181,7 @@ export default function ConfigurationPage() {
       console.log("Setting local values from config directly:", {
         directPredictionUrl,
         directAccountCode,
-        directGithubToken,
+        directGithubToken: directGithubToken ? "***HIDDEN***" : "", // Never log actual token
         directGithubUsername,
         directGithubRepoUrl,
         directGithubBranch
@@ -357,6 +358,9 @@ export default function ConfigurationPage() {
     const endpoint = action === "pull" ? "/git/pull" : "/git/push";
     appLogger.info('GIT_ACTION', `Attempting git ${action}`, { endpoint });
     
+    // Clear any previous branch error
+    setBranchNotFoundError(null);
+    
     try {
       const res = await fetch(`${getBackendUrl()}${endpoint}`, {
         method: "POST",
@@ -370,8 +374,23 @@ export default function ConfigurationPage() {
         // Mark GitHub config as edited when a Git action is successfully performed
         markConfigAsEdited("github");
       } else {
-        setGitStatus(`❌ ${action.toUpperCase()} failed:\n${data.error}`);
-        appLogger.error('GIT_ACTION', `Git ${action} failed`, { error: data.error });
+        // Check if the error is about branch not existing
+        const errorMessage = data.error || "";
+        const refspecMatch = errorMessage.match(/src refspec (.+?) does not match any/);
+        
+        if (refspecMatch && action === "push") {
+          const branchName = refspecMatch[1];
+          setBranchNotFoundError({
+            branchName,
+            action,
+            originalError: errorMessage
+          });
+          setGitStatus(`❌ ${action.toUpperCase()} failed: Branch '${branchName}' does not exist`);
+        } else {
+          setGitStatus(`❌ ${action.toUpperCase()} failed:\n${errorMessage}`);
+        }
+        
+        appLogger.error('GIT_ACTION', `Git ${action} failed`, { error: errorMessage });
       }
     } catch (err) {
       setGitStatus(`❌ ${action.toUpperCase()} error:\n${err.message}`);
@@ -379,92 +398,83 @@ export default function ConfigurationPage() {
     }
   };
 
+  const handleCreateBranch = async () => {
+    if (!branchNotFoundError) return;
+    
+    try {
+      setGitStatus("🔄 Creating branch...");
+      appLogger.info('GIT_ACTION', `Creating branch ${branchNotFoundError.branchName}`);
+      
+      const res = await fetch(`${getBackendUrl()}/git/create-branch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          branchName: branchNotFoundError.branchName 
+        })
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setGitStatus(`✅ Branch '${branchNotFoundError.branchName}' created successfully!\n${data.output}`);
+        appLogger.success('GIT_ACTION', `Branch ${branchNotFoundError.branchName} created`);
+        setBranchNotFoundError(null);
+        
+        // Auto-retry the original push after creating the branch
+        setTimeout(() => {
+          handleGitAction(branchNotFoundError.action);
+        }, 1000);
+      } else {
+        setGitStatus(`❌ Failed to create branch:\n${data.error}`);
+        appLogger.error('GIT_ACTION', `Failed to create branch`, { error: data.error });
+      }
+    } catch (err) {
+      setGitStatus(`❌ Error creating branch:\n${err.message}`);
+      appLogger.error('GIT_ACTION', `Error creating branch`, { error: err.message });
+    }
+  };
+
+  const handleCancelBranchCreation = () => {
+    setBranchNotFoundError(null);
+    setGitStatus("❌ Branch creation cancelled");
+  };
+
   const handleBackendUrlSave = async () => {
     try {
-      const wasBackendUrlConfigured = localStorage.getItem('kyndryl_backend_url') !== null;
-      
-      // Update the backend URL
+      // Validate the URL format
+      if (!localBackendUrl || localBackendUrl.trim() === "") {
+        showStatusMessage("Backend URL is required", true);
+        return;
+      }
+
+      // Basic URL validation
+      try {
+        new URL(localBackendUrl);
+      } catch (e) {
+        showStatusMessage("Please enter a valid URL (e.g., http://localhost:8000)", true);
+        return;
+      }
+
+      // Save the backend URL
       setBackendUrl(localBackendUrl);
-      markConfigAsEdited("backend");
+      showStatusMessage("Backend URL saved successfully! You can now test the connection.", false);
       
-      // Mark setup as completed when backend URL is saved
+      appLogger.info('CONFIG_SAVE', 'Backend URL saved successfully', {
+        url: localBackendUrl
+      });
+
+      // Mark setup as completed if this is the first time
       markSetupCompleted();
-      
-      // Save initial config to the new backend if this is the first time setting it
-      if (!wasBackendUrlConfigured) {
-        try {
-          // Try to save current config to the new backend
-          const { updateConfig, loadConfig } = await import("../configStorage");
-          const currentConfig = await loadConfig();
-          if (currentConfig) {
-            await updateConfig(currentConfig);
-          }
-        } catch (configError) {
-          console.warn("Could not transfer config to new backend:", configError);
-        }
-      }
-      
-      // If this is the first time setting the backend URL, show the relogin button
-      if (!wasBackendUrlConfigured) {
-        showStatusMessage("Backend URL configured for the first time! Please use the 'Relogin' button below to continue with the setup.");
-        appLogger.logSetup('Backend URL configured for first time', { url: localBackendUrl });
-        setShowReloginButton(true);
-      } else {
-        showStatusMessage("Backend URL updated successfully! The app will now use: " + localBackendUrl);
-        appLogger.logConfigChange('BACKEND_URL', 'Backend URL updated', { url: localBackendUrl });
-      }
+
     } catch (error) {
-      console.error("Error updating backend URL:", error);
-      appLogger.error('CONFIG_CHANGE', 'Failed to update backend URL', { error: error.message, url: localBackendUrl });
-      showStatusMessage("Failed to update backend URL: " + error.message, true);
+      showStatusMessage(`Error saving backend URL: ${error.message}`, true);
+      appLogger.error('CONFIG_SAVE', 'Error saving backend URL', {
+        error: error.message,
+        url: localBackendUrl
+      });
     }
   };
 
-  const handleRelogin = () => {
-    // Clear the current session and reload the page to start fresh with the new backend URL
-    appLogger.info('AUTH', 'User initiated relogin after backend URL configuration');
-    
-    // Preserve only the backend URL
-    const backendUrl = localStorage.getItem('kyndryl_backend_url');
-    const permanentConfig = localStorage.getItem('kyndryl_permanent_config');
-    
-    // Clear all session and local storage
-    sessionStorage.clear();
-    
-    // Remove all items except backend URL related items
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key !== 'kyndryl_backend_url' && key !== 'kyndryl_permanent_config') {
-        localStorage.removeItem(key);
-      }
-    }
-    
-    // Make sure backend URL and permanent config are preserved
-    if (backendUrl) localStorage.setItem('kyndryl_backend_url', backendUrl);
-    if (permanentConfig) localStorage.setItem('kyndryl_permanent_config', permanentConfig);
-    
-    // Redirect to home page
-    window.location.href = '/';
-  };
-
-  const testBackendConnection = async () => {
-    appLogger.info('CONNECTION_TEST', 'Testing backend connection', { url: localBackendUrl });
-    
-    try {
-      const response = await fetch(`${localBackendUrl}/health`);
-      if (response.ok) {
-        const data = await response.json();
-        showStatusMessage("✅ Backend connection successful!\nStatus: " + data.status);
-        appLogger.success('CONNECTION_TEST', 'Backend connection successful', { url: localBackendUrl, status: data.status });
-      } else {
-        showStatusMessage("❌ Backend connection failed with status: " + response.status, true);
-        appLogger.error('CONNECTION_TEST', 'Backend connection failed with HTTP error', { url: localBackendUrl, status: response.status });
-      }
-    } catch (error) {
-      showStatusMessage("❌ Backend connection failed: " + error.message, true);
-      appLogger.error('CONNECTION_TEST', 'Backend connection failed with network error', { url: localBackendUrl, error: error.message });
-    }
-  };
+  // ...existing code...
 
   return (
     <div className="flex h-[calc(100vh-8rem)] bg-gray-50">
@@ -670,6 +680,9 @@ export default function ConfigurationPage() {
             setLocalBranchName={setLocalBranchName}
             handleGitAction={handleGitAction}
             gitStatus={gitStatus}
+            branchNotFoundError={branchNotFoundError}
+            handleCreateBranch={handleCreateBranch}
+            handleCancelBranchCreation={handleCancelBranchCreation}
             showStatusMessage={showStatusMessage}
             markConfigAsEdited={markConfigAsEdited}
           />}
@@ -1394,6 +1407,9 @@ function GitHubConfigPanel({
   setLocalBranchName, 
   handleGitAction, 
   gitStatus,
+  branchNotFoundError,
+  handleCreateBranch,
+  handleCancelBranchCreation,
   showStatusMessage,
   markConfigAsEdited 
 }) {
@@ -1534,6 +1550,32 @@ function GitHubConfigPanel({
           Git Push
         </button>
       </div>
+
+      {branchNotFoundError && (
+        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-center mb-3">
+            <span className="text-yellow-600 text-lg mr-2">⚠️</span>
+            <h4 className="text-md font-semibold text-yellow-800">Branch Not Found</h4>
+          </div>
+          <p className="text-sm text-yellow-700 mb-4">
+            Seems like the branch <strong>"{branchNotFoundError.branchName}"</strong> you specified does not exist.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleCreateBranch}
+              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-medium"
+            >
+              🌿 Create Branch
+            </button>
+            <button
+              onClick={handleCancelBranchCreation}
+              className="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {gitStatus && (
         <pre className="mt-4 p-3 bg-gray-100 rounded text-xs whitespace-pre-wrap">

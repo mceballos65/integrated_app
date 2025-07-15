@@ -424,3 +424,71 @@
 2025-07-14 13:35:04,739 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
 2025-07-14 14:05:10,564 - Use pytorch device_name: cpu
 2025-07-14 14:05:10,565 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 14:43:02,137 - Use pytorch device_name: cpu
+2025-07-14 14:43:02,138 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 14:51:02,524 - Use pytorch device_name: cpu
+2025-07-14 14:51:02,525 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 14:55:13,749 - Use pytorch device_name: cpu
+2025-07-14 14:55:13,749 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:05:58,627 - Use pytorch device_name: cpu
+2025-07-14 15:05:58,628 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:10:59,913 - Use pytorch device_name: cpu
+2025-07-14 15:10:59,913 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:13:43,838 - Use pytorch device_name: cpu
+2025-07-14 15:13:43,839 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:17:23,740 - Use pytorch device_name: cpu
+2025-07-14 15:17:23,741 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:18:40,638 - Use pytorch device_name: cpu
+2025-07-14 15:18:40,638 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:24:09,208 - Use pytorch device_name: cpu
+2025-07-14 15:24:09,209 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:25:36,149 - Use pytorch device_name: cpu
+2025-07-14 15:25:36,150 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:25:58,677 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-14 15:25:58,682 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-14 15:25:58,691 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-14 15:25:58,704 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-14 15:29:04,429 - Use pytorch device_name: cpu
+2025-07-14 15:29:04,429 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-15 07:11:11,200 - Use pytorch device_name: cpu
+2025-07-15 07:11:11,201 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-15 07:14:52,570 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:14:52,581 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:14:52,610 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 07:14:52,618 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 07:15:45,624 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:15:45,637 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:15:45,640 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 07:15:45,706 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 07:29:39,954 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:29:39,967 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:29:39,974 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 07:29:40,004 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 07:29:51,658 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:29:51,663 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:29:51,667 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 07:29:51,682 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:20:15,285 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:20:15,290 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:20:15,296 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:20:15,323 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:20:29,581 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:20:29,595 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:20:29,597 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:20:29,637 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:21:12,485 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:21:12,496 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:21:12,501 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:21:12,523 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:31:55,086 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:31:55,092 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:31:55,098 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:31:55,119 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:33:21,044 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:33:21,054 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:33:21,060 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:33:21,096 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:52:20,095 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:52:20,105 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:52:20,109 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:52:20,131 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1

@@ -27,9 +27,11 @@ DEFAULT_CONFIG = {
         "admin_password_hash": ""
     },
     "github": {
-        "token": "",
-        "repo_url": "",
-        "branch": "main"
+        "repositoryUrl": "",
+        "branchName": "main", 
+        "githubUsername": "",
+        "localPath": "./app_data/config/",
+        "token": ""
     },
     # Registro de configuraciones que han sido editadas
     "edited_configs": {

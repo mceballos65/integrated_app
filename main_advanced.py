@@ -39,7 +39,12 @@ from user_encryption import (
     save_github_token,
     get_github_token,
     delete_github_token,
-    github_token_exists
+    github_token_exists,
+    save_github_credentials,
+    get_github_username,
+    get_github_credentials,
+    delete_github_credentials,
+    github_credentials_exist
 )
 
 # Importar config_handler para los nuevos endpoints
@@ -221,18 +226,22 @@ def get_github_config():
     """Get GitHub configuration for git operations"""
     config = load_config()
     if not config or not config.get("github"):
+        print("No config or github section found")
         return None
     
     github_config = config["github"].copy()
     
-    # Get the encrypted token from secure storage
-    encrypted_token = get_github_token()
-    if not encrypted_token:
-        print("No GitHub token found in encrypted storage")
+    # Get the encrypted credentials from secure storage
+    credentials = get_github_credentials()
+    if not credentials['complete']:
+        print("No complete GitHub credentials found in encrypted storage")
+        print(f"Has username: {credentials['has_username']}, Has token: {credentials['has_token']}")
         return None
     
-    # Add the token to the config (this is only in memory, never saved to file)
-    github_config["githubToken"] = encrypted_token
+    # Add the credentials to the config (this is only in memory, never saved to file)
+    github_config["githubToken"] = credentials['token']
+    github_config["githubUsername"] = credentials['username']
+    print(f"Debug - Final github config (credentials masked): username='{credentials['username']}', token='***MASKED***'")
     
     # Validate required fields
     required_fields = ["githubToken", "githubUsername", "repositoryUrl", "branchName", "localPath"]
@@ -772,9 +781,12 @@ def check_config():
 def get_config():
     """Get current configuration"""
     try:
+        print(f"DEBUG: config_exists() = {config_exists()}")
+        
         if not config_exists():
             # Return default config if file doesn't exist
             default_config = get_default_config()
+            print(f"DEBUG: Using default config, github section = {default_config.get('github', 'NOT_FOUND')}")
             return {
                 "config": default_config,
                 "is_default": True,
@@ -782,6 +794,14 @@ def get_config():
             }
         
         config_data = load_config()
+        print(f"DEBUG: load_config() returned type = {type(config_data)}")
+        if config_data:
+            print(f"DEBUG: config keys = {list(config_data.keys()) if config_data else 'None'}")
+            github_section = config_data.get('github', 'NOT_FOUND')
+            print(f"DEBUG: github section = {github_section}")
+            if isinstance(github_section, dict):
+                print(f"DEBUG: github section keys = {list(github_section.keys())}")
+        
         if config_data is None:
             raise HTTPException(status_code=500, detail="Could not load configuration file")
         
@@ -1217,9 +1237,15 @@ def git_push(request: Optional[GitRequest] = None):
         
         if github_config:
             # Use config from file
+            print(f"Debug - Using config: username='{github_config['githubUsername']}', repo='{github_config['repositoryUrl']}', branch='{github_config['branchName']}'")
+            
             repo_url_with_auth = github_config["repositoryUrl"].replace(
                 "https://", f"https://{github_config['githubUsername']}:{github_config['githubToken']}@"
             )
+            
+            # Log the constructed URL (but mask the token)
+            masked_url = repo_url_with_auth.replace(github_config['githubToken'], '***TOKEN***')
+            print(f"Debug - Constructed URL: {masked_url}")
             
             run_git_command(["git", "remote", "set-url", "origin", repo_url_with_auth], github_config["localPath"])
             run_git_command(["git", "checkout", github_config["branchName"]], github_config["localPath"])
@@ -1261,6 +1287,47 @@ def git_push(request: Optional[GitRequest] = None):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Git push error: {str(e)}")
+
+@app.post("/git/create-branch")
+def git_create_branch(request: dict):
+    """Create a new branch in the Git repository"""
+    try:
+        branch_name = request.get("branchName")
+        if not branch_name:
+            raise HTTPException(status_code=400, detail="Branch name is required")
+        
+        # Get GitHub config from config.json
+        github_config = get_github_config()
+        
+        if not github_config:
+            raise HTTPException(
+                status_code=400,
+                detail="No GitHub configuration found. Please configure GitHub settings first."
+            )
+        
+        local_path = github_config["localPath"]
+        
+        # Create and checkout the new branch
+        run_git_command(["git", "checkout", "-b", branch_name], local_path)
+        
+        # Set up remote tracking
+        repo_url_with_auth = github_config["repositoryUrl"].replace(
+            "https://", f"https://{github_config['githubUsername']}:{github_config['githubToken']}@"
+        )
+        run_git_command(["git", "remote", "set-url", "origin", repo_url_with_auth], local_path)
+        
+        # Push the new branch to remote
+        result = run_git_command(["git", "push", "-u", "origin", branch_name], local_path)
+        
+        return {
+            **result,
+            "message": f"Branch '{branch_name}' created and pushed successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating branch: {str(e)}")
 
 # Endpoint: User system health check
 @app.get("/health")
@@ -1320,19 +1387,6 @@ def user_health_check():
             "user_system": "failed",
             "configuration": {"status": "unknown"}
         }
-
-# Endpoint: Health check
-@app.get("/")
-def health_check(http_request: Request):
-    # logging section
-    if ENABLE_LOGGING:
-        log_event(
-            tag="health_check",
-            message="Health check status request",
-            request=http_request
-        )
-    
-    return {"status": "ok"}
 
 @app.post("/api/config/mark-edited")
 async def mark_config_as_edited(request: Request, file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
@@ -1477,11 +1531,8 @@ def clean_logs(log_file_path=None, max_entries=None):
             "error": str(e)
         }
 
-# Variables para llevar registro de la limpieza de logs
+# Variables para llevar registro de la limpieza de logs (simplificado)
 last_log_cleanup = datetime.now()
-cleanup_interval = timedelta(hours=24)  # Limpiar cada 24 horas
-cleanup_thread = None
-cleanup_thread_running = False  # Flag to control thread execution
 
 # Función que se ejecuta en un hilo separado para limpiar logs periódicamente
 def periodic_log_cleanup():
@@ -2078,6 +2129,7 @@ def sanitize_config_response(config):
     # Handle GitHub section
     if "github" in sanitized_config:
         # Add hasToken flag
+
         sanitized_config["github"]["hasToken"] = github_token_exists()
         # Remove any token field that might exist
         sanitized_config["github"].pop("githubToken", None)
@@ -2158,3 +2210,75 @@ async def delete_github_token_endpoint():
         raise HTTPException(status_code=500, detail=f"Error deleting GitHub token: {str(e)}")
 
 # ========================================
+# GITHUB CREDENTIALS ENDPOINTS
+# ========================================
+
+class GitHubCredentials(BaseModel):
+    username: str
+    token: str
+
+@app.post("/config/github/credentials")
+def save_github_credentials_endpoint(credentials: GitHubCredentials):
+    """Save GitHub username and token to encrypted storage"""
+    try:
+        success = save_github_credentials(credentials.username, credentials.token)
+        if success:
+            return {"message": "GitHub credentials saved successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to save GitHub credentials")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving GitHub credentials: {str(e)}")
+
+@app.get("/config/github/credentials/exists")
+def check_github_credentials_exist():
+    """Check if GitHub credentials exist in encrypted storage"""
+    try:
+        exists = github_credentials_exist()
+        credentials = get_github_credentials()
+        return {
+            "exists": exists,
+            "has_username": credentials['has_username'],
+            "has_token": credentials['has_token'],
+            "complete": credentials['complete']
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking GitHub credentials: {str(e)}")
+
+@app.get("/config/github/credentials/username")
+def get_github_username_endpoint():
+    """Get GitHub username from encrypted storage (for display purposes)"""
+    try:
+        username = get_github_username()
+        return {
+            "username": username,
+            "has_username": bool(username)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting GitHub username: {str(e)}")
+
+@app.delete("/config/github/credentials")
+def delete_github_credentials_endpoint():
+    """Delete GitHub credentials from encrypted storage"""
+    try:
+        success = delete_github_credentials()
+        if success:
+            return {"message": "GitHub credentials deleted successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to delete GitHub credentials")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting GitHub credentials: {str(e)}")
+
+# Update the existing token endpoints to use the new system
+@app.get("/config/github/token/exists")
+def check_github_token_exists():
+    """Check if GitHub token exists (legacy endpoint - now checks complete credentials)"""
+    try:
+        credentials = get_github_credentials()
+        return {
+            "exists": credentials['has_token'],
+            "complete_credentials": credentials['complete']
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking GitHub token: {str(e)}")
+
+# ...existing code...

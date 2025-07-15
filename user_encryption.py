@@ -382,6 +382,103 @@ def github_token_exists() -> bool:
         print(f"Error checking GitHub token existence: {e}")
         return False
 
+# ========================================
+# GITHUB CREDENTIALS MANAGEMENT
+# ========================================
+
+def save_github_credentials(username: str, token: str) -> bool:
+    """Save GitHub username and token to encrypted storage"""
+    try:
+        data = decrypt_data()
+        
+        # Create github section if it doesn't exist
+        if "github" not in data:
+            data["github"] = {}
+        
+        # Encrypt and save both username and token
+        data["github"]["username"] = encrypt_string(username)
+        data["github"]["token"] = encrypt_string(token)
+        data["last_modified"] = datetime.now().isoformat()
+        
+        success = save_users_data(data)
+        if success:
+            print(f"GitHub credentials saved for user: {username}")
+        return success
+    except Exception as e:
+        print(f"Error saving GitHub credentials: {e}")
+        return False
+
+def get_github_username() -> str:
+    """Get GitHub username from encrypted storage"""
+    try:
+        data = decrypt_data()
+        github_data = data.get("github", {})
+        encrypted_username = github_data.get("username", "")
+        
+        if not encrypted_username:
+            return ""
+        
+        # Decrypt the username
+        decrypted_username = decrypt_string(encrypted_username)
+        return decrypted_username
+    except Exception as e:
+        print(f"Error getting GitHub username: {e}")
+        return ""
+
+def get_github_credentials() -> Dict[str, any]:
+    """Get both GitHub token and username from encrypted storage"""
+    try:
+        data = decrypt_data()
+        github_data = data.get("github", {})
+        
+        # Get encrypted values
+        encrypted_username = github_data.get("username", "")
+        encrypted_token = github_data.get("token", "")
+        
+        # Decrypt if they exist
+        username = decrypt_string(encrypted_username) if encrypted_username else ""
+        token = decrypt_string(encrypted_token) if encrypted_token else ""
+        
+        return {
+            'username': username,
+            'token': token,
+            'has_username': bool(username),
+            'has_token': bool(token),
+            'complete': bool(username and token)
+        }
+    except Exception as e:
+        print(f"Error getting GitHub credentials: {e}")
+        return {
+            'username': '',
+            'token': '',
+            'has_username': False,
+            'has_token': False,
+            'complete': False
+        }
+
+def delete_github_credentials() -> bool:
+    """Delete all GitHub credentials from encrypted storage"""
+    try:
+        data = decrypt_data()
+        if "github" in data:
+            del data["github"]
+            data["last_modified"] = datetime.now().isoformat()
+            save_users_data(data)
+            print("GitHub credentials deleted")
+        return True
+    except Exception as e:
+        print(f"Error deleting GitHub credentials: {e}")
+        return False
+
+def github_credentials_exist() -> bool:
+    """Check if GitHub credentials exist in encrypted storage"""
+    try:
+        creds = get_github_credentials()
+        return creds['complete']
+    except Exception as e:
+        print(f"Error checking GitHub credentials existence: {e}")
+        return False
+
 # Initialize encryption on import
 if __name__ == "__main__":
     # Test the encryption system

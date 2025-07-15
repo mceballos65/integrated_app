@@ -10,6 +10,31 @@ import {
   saveGithubConfig 
 } from "./configStorage";
 
+// Utility function to sanitize config objects before logging
+function sanitizeConfigForLogging(config) {
+  if (!config) return config;
+  
+  const sanitized = JSON.parse(JSON.stringify(config)); // Deep clone
+  
+  // Remove or mask sensitive fields
+  if (sanitized.github) {
+    if (sanitized.github.token) {
+      sanitized.github.token = "***HIDDEN***";
+    }
+    if (sanitized.github.githubToken) {
+      sanitized.github.githubToken = "***HIDDEN***";
+    }
+  }
+  
+  if (sanitized.security) {
+    if (sanitized.security.admin_password_hash) {
+      sanitized.security.admin_password_hash = "***HIDDEN***";
+    }
+  }
+  
+  return sanitized;
+}
+
 const defaultConfig = {
   app: {
     prediction_url: "http://localhost:8000",
@@ -44,12 +69,12 @@ const useConfigStore = create((set, get) => ({
   // Convenience getters for commonly used values
   get predictionUrl() { 
     const value = get().config?.app?.prediction_url || "";
-    console.log("predictionUrl getter:", { config: get().config, value });
+    console.log("predictionUrl getter:", { hasConfig: !!get().config, value });
     return value;
   },
   get accountCode() { 
     const value = get().config?.app?.account_code || "";
-    console.log("accountCode getter:", { config: get().config, value });
+    console.log("accountCode getter:", { hasConfig: !!get().config, value });
     return value;
   },
   get logFileLocation() { return get().config?.logging?.file_location || "./app_data/logs/predictions.log"; },
@@ -147,11 +172,11 @@ const useConfigStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       const response = await updateConfig(configUpdate);
-      console.log("Store updateConfig response:", response);
+      console.log("Store updateConfig response:", response ? "Config received" : "No config");
       
       // The response should be the config object directly
       const updatedConfig = response;
-      console.log("Store setting config to:", updatedConfig);
+      console.log("Store setting config - keys:", updatedConfig ? Object.keys(updatedConfig) : "No config");
       
       set({ 
         config: updatedConfig, 
