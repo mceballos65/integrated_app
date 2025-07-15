@@ -34,6 +34,7 @@ function GitHubConfigPanel({
   const [hasCredentials, setHasCredentials] = useState(false);
   const [checkingCredentials, setCheckingCredentials] = useState(true);
   const [savingCredentials, setSavingCredentials] = useState(false);
+  const [savingAdvancedSettings, setSavingAdvancedSettings] = useState(false);
 
   // Check if GitHub credentials exist on component mount
   useEffect(() => {
@@ -123,6 +124,54 @@ function GitHubConfigPanel({
     } catch (error) {
       showStatusMessage('❌ Error deleting credentials: ' + error.message, true);
       appLogger.error('GITHUB_CONFIG', 'Error deleting GitHub credentials', { error: error.message });
+    }
+  };
+
+  const handleSaveAdvancedSettings = async () => {
+    if (!localBranchName.trim()) {
+      showStatusMessage('Branch name cannot be empty', true);
+      return;
+    }
+
+    if (!localPath.trim()) {
+      showStatusMessage('Local path cannot be empty', true);
+      return;
+    }
+
+    setSavingAdvancedSettings(true);
+    try {
+      const response = await fetch(`${getBackendUrl()}/api/config/update`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          github: {
+            branchName: localBranchName.trim(),
+            localPath: localPath.trim()
+          }
+        })
+      });
+
+      if (response.ok) {
+        showStatusMessage('✅ Advanced settings saved successfully');
+        markConfigAsEdited("github");
+        appLogger.success('GITHUB_CONFIG', 'Advanced GitHub settings saved', { 
+          branchName: localBranchName.trim(), 
+          localPath: localPath.trim() 
+        });
+      } else {
+        const errorData = await response.json();
+        showStatusMessage('❌ Failed to save advanced settings: ' + (errorData.detail || 'Unknown error'), true);
+        appLogger.error('GITHUB_CONFIG', 'Failed to save advanced GitHub settings', { 
+          error: errorData.detail || 'Unknown error' 
+        });
+      }
+    } catch (error) {
+      showStatusMessage('❌ Error saving advanced settings: ' + error.message, true);
+      appLogger.error('GITHUB_CONFIG', 'Error saving advanced GitHub settings', { 
+        error: error.message 
+      });
+    } finally {
+      setSavingAdvancedSettings(false);
     }
   };
 
@@ -272,6 +321,22 @@ function GitHubConfigPanel({
             Local directory path to sync with the repository
           </p>
         </div>
+
+        {/* Save Advanced Settings Button */}
+        <button
+          onClick={handleSaveAdvancedSettings}
+          disabled={savingAdvancedSettings || !localBranchName.trim() || !localPath.trim()}
+          className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+        >
+          {savingAdvancedSettings ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              Saving...
+            </>
+          ) : (
+            "💾 Save Advanced Settings"
+          )}
+        </button>
       </div>
 
       {/* Git Actions */}

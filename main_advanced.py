@@ -2104,6 +2104,7 @@ async def update_config_endpoint(config_update: Dict[str, Any], file: str = Quer
 
 class GitHubTokenRequest(BaseModel):
     token: str
+    username: Optional[str] = None
 
 @app.post("/config/github/token")
 async def save_github_token_endpoint(token_request: GitHubTokenRequest):
@@ -2114,6 +2115,22 @@ async def save_github_token_endpoint(token_request: GitHubTokenRequest):
             raise HTTPException(status_code=400, detail="Token cannot be empty")
         
         success = save_github_token(token)
+        
+        # If username is provided, update it in the config
+        if success and token_request.username:
+            try:
+                config = load_config()
+                if not config:
+                    config = {"github": {}}
+                if "github" not in config:
+                    config["github"] = {}
+                
+                config["github"]["githubUsername"] = token_request.username.strip()
+                save_config(config)
+            except Exception as e:
+                print(f"Warning: Failed to save username to config: {e}")
+                # Don't fail the whole operation just for username update
+        
         if success:
             return {
                 "success": True,
@@ -2133,8 +2150,20 @@ async def check_github_token_exists():
     """Check if GitHub token exists in encrypted storage"""
     try:
         exists = github_token_exists()
+        username = None
+        
+        # If token exists, try to get username from config
+        if exists:
+            try:
+                config = load_config()
+                if config and config.get("github"):
+                    username = config["github"].get("githubUsername")
+            except Exception as e:
+                print(f"Warning: Failed to load username from config: {e}")
+        
         return {
             "hasToken": exists,
+            "username": username,
             "message": "Token exists" if exists else "No token found"
         }
     except Exception as e:
