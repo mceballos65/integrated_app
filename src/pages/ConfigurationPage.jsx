@@ -8,6 +8,365 @@ import { getBackendUrl, setBackendUrl, markSetupCompleted } from "../configStora
 import appLogger from "../services/appLogger";
 import UserManagementSection from "../components/UserManagementSection.jsx";
 
+// GitHub Configuration Panel
+function GitHubConfigPanel({ 
+  localGithubToken, 
+  setLocalGithubToken, 
+  localGithubUsername, 
+  setLocalGithubUsername, 
+  localRepositoryUrl, 
+  setLocalRepositoryUrl, 
+  localBranchName, 
+  setLocalBranchName, 
+  localPath, 
+  setLocalPath, 
+  handleGitAction, 
+  gitStatus, 
+  gitPushLoading, 
+  gitPullLoading, 
+  branchNotFoundError, 
+  handleCreateBranch, 
+  handleCancelBranchCreation, 
+  createBranchLoading, 
+  showStatusMessage, 
+  markConfigAsEdited 
+}) {
+  const [hasCredentials, setHasCredentials] = useState(false);
+  const [checkingCredentials, setCheckingCredentials] = useState(true);
+  const [savingCredentials, setSavingCredentials] = useState(false);
+
+  // Check if GitHub credentials exist on component mount
+  useEffect(() => {
+    checkGitHubCredentials();
+  }, []);
+
+  const checkGitHubCredentials = async () => {
+    setCheckingCredentials(true);
+    try {
+      const response = await fetch(`${getBackendUrl()}/github/check-credentials`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await response.json();
+      setHasCredentials(data.has_credentials || false);
+      
+      // Load username from backend if credentials exist
+      if (data.has_credentials && data.username) {
+        setLocalGithubUsername(data.username);
+      }
+    } catch (error) {
+      console.error('Error checking GitHub credentials:', error);
+      setHasCredentials(false);
+    } finally {
+      setCheckingCredentials(false);
+    }
+  };
+
+  const handleSaveCredentials = async () => {
+    if (!localGithubToken.trim() || !localGithubUsername.trim()) {
+      showStatusMessage('Please enter both GitHub token and username', true);
+      return;
+    }
+
+    setSavingCredentials(true);
+    try {
+      const response = await fetch(`${getBackendUrl()}/github/save-credentials`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: localGithubToken,
+          username: localGithubUsername
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setHasCredentials(true);
+        setLocalGithubToken(''); // Clear token from frontend for security
+        showStatusMessage('✅ GitHub credentials saved securely');
+        markConfigAsEdited("github");
+        appLogger.success('GITHUB_CONFIG', 'GitHub credentials saved securely');
+      } else {
+        showStatusMessage('❌ Failed to save credentials: ' + data.error, true);
+        appLogger.error('GITHUB_CONFIG', 'Failed to save GitHub credentials', { error: data.error });
+      }
+    } catch (error) {
+      showStatusMessage('❌ Error saving credentials: ' + error.message, true);
+      appLogger.error('GITHUB_CONFIG', 'Error saving GitHub credentials', { error: error.message });
+    } finally {
+      setSavingCredentials(false);
+    }
+  };
+
+  const handleDeleteCredentials = async () => {
+    if (!confirm('Are you sure you want to delete the stored GitHub credentials?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${getBackendUrl()}/github/delete-credentials`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setHasCredentials(false);
+        setLocalGithubToken('');
+        setLocalGithubUsername('');
+        showStatusMessage('✅ GitHub credentials deleted');
+        appLogger.success('GITHUB_CONFIG', 'GitHub credentials deleted');
+      } else {
+        showStatusMessage('❌ Failed to delete credentials: ' + data.error, true);
+        appLogger.error('GITHUB_CONFIG', 'Failed to delete GitHub credentials', { error: data.error });
+      }
+    } catch (error) {
+      showStatusMessage('❌ Error deleting credentials: ' + error.message, true);
+      appLogger.error('GITHUB_CONFIG', 'Error deleting GitHub credentials', { error: error.message });
+    }
+  };
+
+  return (
+    <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200">
+      <div className="flex items-center mb-6">
+        <span className="text-2xl mr-3">📁</span>
+        <h2 className="text-2xl font-bold text-kyndryl-orange">GitHub Integration</h2>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <h3 className="text-md font-semibold text-blue-800 mb-2">GitHub Repository Configuration</h3>
+        <p className="text-sm text-blue-700">
+          Configure GitHub integration to sync configuration files with your repository. 
+          All credentials are encrypted and stored securely on the backend.
+        </p>
+      </div>
+
+      {/* Basic Configuration Section */}
+      <div className="mb-8">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">
+          📝 Basic Configuration
+        </h3>
+        
+        {/* GitHub Token */}
+        <div className="mb-4">
+          <label className="block font-semibold mb-1">
+            GitHub Personal Access Token
+            <span className="text-red-500 ml-1">*</span>
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="password"
+              value={localGithubToken}
+              onChange={(e) => setLocalGithubToken(e.target.value)}
+              className="flex-1 border border-gray-300 rounded px-3 py-2"
+              placeholder={hasCredentials ? "Token is stored securely" : "Enter your GitHub token"}
+              disabled={checkingCredentials}
+            />
+            {hasCredentials && (
+              <button
+                onClick={handleDeleteCredentials}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                title="Delete stored credentials"
+              >
+                🗑️ Delete
+              </button>
+            )}
+          </div>
+          <p className="text-sm text-gray-600 mt-1">
+            {hasCredentials ? (
+              <span className="text-green-600">✅ Token is securely stored on backend</span>
+            ) : (
+              "Generate at: GitHub → Settings → Developer settings → Personal access tokens"
+            )}
+          </p>
+        </div>
+
+        {/* GitHub Username */}
+        <div className="mb-4">
+          <label className="block font-semibold mb-1">
+            GitHub Username
+            <span className="text-red-500 ml-1">*</span>
+          </label>
+          <input
+            type="text"
+            value={localGithubUsername}
+            onChange={(e) => setLocalGithubUsername(e.target.value)}
+            className="w-full border border-gray-300 rounded px-3 py-2"
+            placeholder="your-github-username"
+            disabled={checkingCredentials}
+          />
+          <p className="text-sm text-gray-600 mt-1">
+            Your GitHub username (for authentication and commits)
+          </p>
+        </div>
+
+        {/* Repository URL */}
+        <div className="mb-4">
+          <label className="block font-semibold mb-1">
+            Repository URL
+            <span className="text-red-500 ml-1">*</span>
+          </label>
+          <input
+            type="text"
+            value={localRepositoryUrl}
+            onChange={(e) => setLocalRepositoryUrl(e.target.value)}
+            className="w-full border border-gray-300 rounded px-3 py-2"
+            placeholder="https://github.com/username/repository.git"
+          />
+          <p className="text-sm text-gray-600 mt-1">
+            The HTTPS URL of your GitHub repository
+          </p>
+        </div>
+
+        {/* Save Credentials Button */}
+        <button
+          onClick={handleSaveCredentials}
+          disabled={savingCredentials || checkingCredentials || (!localGithubToken && !hasCredentials)}
+          className="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+        >
+          {savingCredentials ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              Saving...
+            </>
+          ) : hasCredentials ? (
+            "🔄 Update Credentials"
+          ) : (
+            "💾 Save Credentials"
+          )}
+        </button>
+      </div>
+
+      {/* Advanced Configuration Section */}
+      <div className="mb-8">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">
+          ⚙️ Advanced Configuration
+        </h3>
+        
+        {/* Branch Name */}
+        <div className="mb-4">
+          <label className="block font-semibold mb-1">Branch Name</label>
+          <input
+            type="text"
+            value={localBranchName}
+            onChange={(e) => setLocalBranchName(e.target.value)}
+            className="w-full border border-gray-300 rounded px-3 py-2"
+            placeholder="main"
+          />
+          <p className="text-sm text-gray-600 mt-1">
+            The branch to push to and pull from (default: main)
+          </p>
+        </div>
+
+        {/* Local Path */}
+        <div className="mb-4">
+          <label className="block font-semibold mb-1">Local Path</label>
+          <input
+            type="text"
+            value={localPath}
+            onChange={(e) => setLocalPath(e.target.value)}
+            className="w-full border border-gray-300 rounded px-3 py-2"
+            placeholder="./app_data/config"
+          />
+          <p className="text-sm text-gray-600 mt-1">
+            Local directory path to sync with the repository
+          </p>
+        </div>
+      </div>
+
+      {/* Git Actions */}
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">
+          🚀 Git Actions
+        </h3>
+        
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleGitAction("pull")}
+            disabled={gitPullLoading || !hasCredentials}
+            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+          >
+            {gitPullLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Pulling...
+              </>
+            ) : (
+              "⬇️ Git Pull"
+            )}
+          </button>
+          <button
+            onClick={() => handleGitAction("push")}
+            disabled={gitPushLoading || !hasCredentials}
+            className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+          >
+            {gitPushLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Pushing...
+              </>
+            ) : (
+              "⬆️ Git Push"
+            )}
+          </button>
+        </div>
+        
+        {!hasCredentials && (
+          <p className="text-sm text-orange-600 mt-2 text-center">
+            ⚠️ Please save your credentials before using Git actions
+          </p>
+        )}
+      </div>
+
+      {/* Branch Not Found Error Dialog */}
+      {branchNotFoundError && (
+        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+          <div className="flex items-center mb-3">
+            <span className="text-xl mr-2">⚠️</span>
+            <h3 className="text-md font-semibold text-yellow-800">Branch Not Found</h3>
+          </div>
+          <p className="text-sm text-yellow-700 mb-4">
+            The specified branch "{branchNotFoundError.branchName}" does not exist in the remote repository.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleCreateBranch}
+              disabled={createBranchLoading}
+              className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+              {createBranchLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Creating...
+                </>
+              ) : (
+                "Create Branch"
+              )}
+            </button>
+            <button
+              onClick={handleCancelBranchCreation}
+              disabled={createBranchLoading}
+              className="flex-1 bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Git Status Display */}
+      {gitStatus && (
+        <div className="mt-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">Git Status:</h3>
+          <pre className="p-3 bg-gray-100 rounded text-xs whitespace-pre-wrap border">
+            {gitStatus}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ConfigurationPage() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
@@ -45,6 +404,14 @@ export default function ConfigurationPage() {
   const [localPath, setLocalPath] = useState("");
   const [gitStatus, setGitStatus] = useState("");
   const [localBackendUrl, setLocalBackendUrl] = useState("");
+  
+  // Git action loading states
+  const [gitPushLoading, setGitPushLoading] = useState(false);
+  const [gitPullLoading, setGitPullLoading] = useState(false);
+  
+  // Branch error handling states
+  const [branchNotFoundError, setBranchNotFoundError] = useState(null);
+  const [createBranchLoading, setCreateBranchLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [isError, setIsError] = useState(false);
 
@@ -172,6 +539,7 @@ export default function ConfigurationPage() {
       const directGithubUsername = config?.github?.githubUsername || "";
       const directGithubRepoUrl = config?.github?.repositoryUrl || "";
       const directGithubBranch = config?.github?.branchName || "main";
+      const directLocalPath = config?.github?.localPath || "./app_data/config";
       const directDebugRequiresAuth = config?.security?.debug_requires_auth || false;
       
       // Actualizar localStorage para mantener consistencia
@@ -183,7 +551,8 @@ export default function ConfigurationPage() {
         directGithubToken,
         directGithubUsername,
         directGithubRepoUrl,
-        directGithubBranch
+        directGithubBranch,
+        directLocalPath
       });
       
       setLocalPredictionUrl(directPredictionUrl);
@@ -193,6 +562,7 @@ export default function ConfigurationPage() {
       setLocalGithubUsername(directGithubUsername);
       setLocalRepositoryUrl(directGithubRepoUrl);
       setLocalBranchName(directGithubBranch);
+      setLocalPath(directLocalPath);
       
       // Sincronizar los estados de edición entre localStorage y el backend
       const localEditedConfigs = localStorage.getItem('kyndryl_edited_configs');
@@ -357,6 +727,16 @@ export default function ConfigurationPage() {
     const endpoint = action === "pull" ? "/git/pull" : "/git/push";
     appLogger.info('GIT_ACTION', `Attempting git ${action}`, { endpoint });
     
+    // Clear any previous branch errors
+    setBranchNotFoundError(null);
+    
+    // Set loading state
+    if (action === "push") {
+      setGitPushLoading(true);
+    } else {
+      setGitPullLoading(true);
+    }
+    
     try {
       const res = await fetch(`${getBackendUrl()}${endpoint}`, {
         method: "POST",
@@ -370,13 +750,85 @@ export default function ConfigurationPage() {
         // Mark GitHub config as edited when a Git action is successfully performed
         markConfigAsEdited("github");
       } else {
-        setGitStatus(`❌ ${action.toUpperCase()} failed:\n${data.error}`);
+        // Check if it's a branch not found error
+        const errorMessage = data.error || '';
+        console.log("Git action failed. Error message:", errorMessage);
+        
+        const branchNotFoundPattern = /src refspec (.+?) does not match any/;
+        const match = errorMessage.match(branchNotFoundPattern);
+        
+        console.log("Branch not found pattern match:", match);
+        
+        if (match && action === "push") {
+          const branchName = match[1];
+          console.log("Branch not found detected. Branch name:", branchName);
+          
+          setBranchNotFoundError({
+            branchName: branchName,
+            originalAction: action,
+            fullError: errorMessage
+          });
+          setGitStatus(`❌ Branch "${branchName}" does not exist on remote repository`);
+        } else {
+          setGitStatus(`❌ ${action.toUpperCase()} failed:\n${data.error}`);
+        }
+        
         appLogger.error('GIT_ACTION', `Git ${action} failed`, { error: data.error });
       }
     } catch (err) {
       setGitStatus(`❌ ${action.toUpperCase()} error:\n${err.message}`);
       appLogger.error('GIT_ACTION', `Git ${action} error`, { error: err.message });
+    } finally {
+      // Clear loading state
+      if (action === "push") {
+        setGitPushLoading(false);
+      } else {
+        setGitPullLoading(false);
+      }
     }
+  };
+
+  const handleCreateBranch = async () => {
+    if (!branchNotFoundError) return;
+    
+    const { branchName, originalAction } = branchNotFoundError;
+    setCreateBranchLoading(true);
+    
+    try {
+      // Call backend to create the branch
+      const res = await fetch(`${getBackendUrl()}/git/create-branch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branchName })
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        setGitStatus(`✅ Branch "${branchName}" created successfully!\nNow attempting ${originalAction}...`);
+        setBranchNotFoundError(null);
+        
+        // Automatically perform the original action (push) after creating the branch
+        setTimeout(() => {
+          handleGitAction(originalAction);
+        }, 1000);
+        
+        appLogger.success('GIT_ACTION', `Branch created successfully`, { branchName });
+      } else {
+        setGitStatus(`❌ Failed to create branch "${branchName}":\n${data.error}`);
+        appLogger.error('GIT_ACTION', `Failed to create branch`, { branchName, error: data.error });
+      }
+    } catch (err) {
+      setGitStatus(`❌ Error creating branch:\n${err.message}`);
+      appLogger.error('GIT_ACTION', `Error creating branch`, { error: err.message });
+    } finally {
+      setCreateBranchLoading(false);
+    }
+  };
+
+  const handleCancelBranchCreation = () => {
+    setBranchNotFoundError(null);
+    setGitStatus("❌ Branch creation cancelled");
   };
 
   const handleBackendUrlSave = async () => {
@@ -668,8 +1120,16 @@ export default function ConfigurationPage() {
             setLocalRepositoryUrl={setLocalRepositoryUrl}
             localBranchName={localBranchName}
             setLocalBranchName={setLocalBranchName}
+            localPath={localPath}
+            setLocalPath={setLocalPath}
             handleGitAction={handleGitAction}
             gitStatus={gitStatus}
+            gitPushLoading={gitPushLoading}
+            gitPullLoading={gitPullLoading}
+            branchNotFoundError={branchNotFoundError}
+            handleCreateBranch={handleCreateBranch}
+            handleCancelBranchCreation={handleCancelBranchCreation}
+            createBranchLoading={createBranchLoading}
             showStatusMessage={showStatusMessage}
             markConfigAsEdited={markConfigAsEdited}
           />}
@@ -1100,440 +1560,64 @@ function AdminSecurityPanel({
         </button>
       </div>
 
-      {/* Debug Page Security Setting */}
-      <div className={`flex items-center space-x-2 p-3 rounded-lg ${highlightDebugAccess ? 'border-2 border-red-500 bg-red-50' : ''}`}>
-        {highlightDebugAccess && (
-          <div className="mr-2 text-red-500 text-xl">🚨</div>
-        )}
-        <div className="flex-1">
-          <label className="inline-flex items-center cursor-pointer">
-            <input 
-              type="checkbox" 
-              checked={isDebugProtected} 
-              onChange={async (e) => {
-                const newValue = e.target.checked;
-                try {
-                  // Actualizar la configuración en el backend
-                  await updateConfig({
-                    security: { debug_requires_auth: newValue }
-                  });
-                  
-                  // También actualizar localStorage para mantener la configuración sincronizada
-                  localStorage.setItem('debugRequiresAuth', newValue ? 'true' : 'false');
-                  
-                  // Asegurarnos de actualizar el estado local
-                  setIsDebugProtected(newValue);
-                  
-                  markConfigAsEdited("security");
-                  showStatusMessage(newValue ? '🔒 Debug page access restricted to authenticated users' : '⚠️ Debug page is now publicly accessible');
-                  
-                  // Reload configuration from backend to ensure UI shows real state
-                  await reloadConfig();
-                } catch (error) {
-                  showStatusMessage('Failed to update debug access setting: ' + error.message, true);
-                }
-              }}
-              className="sr-only peer" 
-            />
-            <div className={`relative w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 ${isDebugProtected ? 'peer-checked:bg-green-600' : 'peer-checked:bg-gray-400'}`}></div>
-            <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-              Restrict Debug Page Access
-            </span>
-          </label>
-        </div>
-        <button 
-          onClick={async () => {
-            try {
-              // Actualizar la configuración en el backend
-              await updateConfig({
-                security: { debug_requires_auth: true }
-              });
-              
-              // También actualizar localStorage para mantener la configuración sincronizada
-              localStorage.setItem('debugRequiresAuth', 'true');
-              
-              // Asegurarnos de actualizar el estado local
-              setIsDebugProtected(true);
-              
-              markConfigAsEdited("security");
-              showStatusMessage("🔒 Security improvement applied: Debug page access is now restricted to authenticated users only!");
-              
-              // Reload configuration from backend to ensure UI shows real state
-              await reloadConfig();
-            } catch (error) {
-              showStatusMessage('Failed to update debug access setting: ' + error.message, true);
-            }
-          }}
-          disabled={isDebugProtected}
-          className={`px-4 py-2 text-sm text-white font-medium rounded ${isDebugProtected ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
-        >
-          Apply Security Setting
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function LogConfigPanel() {
-  const {
-    config,
-    configLoaded,
-    updateConfig,
-  } = useConfigStore();
-
-  // Inicializar con valores de la configuración
-  const [logFileLocation, setLogFileLocation] = useState(() => 
-    config?.logging?.file_location || "./app_data/logs/predictions.log"
-  );
-  const [maxLogEntries, setMaxLogEntries] = useState(() => 
-    config?.logging?.max_entries || 50000
-  );
-  const [isCleaningLogs, setIsCleaningLogs] = useState(false);
-  const [cleanupMessage, setCleanupMessage] = useState("");
-  const [cleanupSuccess, setCleanupSuccess] = useState(null);
-
-  // Sincronizar con cambios en la configuración
-  useEffect(() => {
-    if (configLoaded && config?.logging) {
-      setLogFileLocation(config.logging.file_location || "./logs/predictions.log");
-      setMaxLogEntries(config.logging.max_entries || 50000);
-    }
-  }, [configLoaded, config]);
-
-  const handleSaveConfig = async () => {
-    try {
-      const backendUrl = getBackendUrl();
-      
-      // Usar el nuevo endpoint que actualiza la configuración y limpia los logs
-      const response = await fetch(`${backendUrl}/api/config/logs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          file_location: logFileLocation,
-          max_entries: maxLogEntries
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error ${response.status}: ${errorText}`);
-      }
-      
-      const result = await response.json();
-      
-      // Actualizar store para mantener sincronización
-      await updateConfig({
-        logging: {
-          file_location: logFileLocation,
-          max_entries: maxLogEntries
-        }
-      });
-      
-      // Mark logging config as edited
-      markConfigAsEdited("logging");
-      
-      // Mostrar resultados de la limpieza si se realizó
-      if (result.cleanup_result) {
-        setCleanupSuccess(result.cleanup_result.success);
-        setCleanupMessage(result.cleanup_result.message);
-        
-        // Ocultar el mensaje después de 5 segundos
-        setTimeout(() => {
-          setCleanupMessage("");
-        }, 5000);
-      }
-      
-      showStatusMessage("Log settings saved successfully! Old entries have been cleaned up.");
-      appLogger.success('CONFIG_CHANGE', 'Log configuration saved and cleanup performed', {
-        file_location: logFileLocation,
-        max_entries: maxLogEntries,
-        cleanup_result: result.cleanup_result
-      });
-    } catch (error) {
-      console.error("Error saving log configuration:", error);
-      showStatusMessage("Failed to save log settings: " + error.message, true);
-    }
-  };
-
-  const handleManualCleanup = async () => {
-    try {
-      setIsCleaningLogs(true);
-      setCleanupMessage("Cleaning up logs...");
-      const backendUrl = getBackendUrl();
-      
-      const response = await fetch(`${backendUrl}/api/logs/cleanup`, {
-        method: 'POST',
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error ${response.status}: ${errorText}`);
-      }
-      
-      const result = await response.json();
-      setCleanupSuccess(result.success);
-      setCleanupMessage(result.message);
-      
-      // Ocultar el mensaje después de 5 segundos
-      setTimeout(() => {
-        setCleanupMessage("");
-      }, 5000);
-      
-      appLogger.info('LOG_MAINTENANCE', 'Manual log cleanup performed', result);
-    } catch (error) {
-      console.error("Error during log cleanup:", error);
-      setCleanupSuccess(false);
-      setCleanupMessage("Failed to clean logs: " + error.message);
-    } finally {
-      setIsCleaningLogs(false);
-    }
-  };
-
-  return (
-    <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200">
-      <div className="flex items-center mb-6">
-        <span className="text-2xl mr-3">📋</span>
-        <h2 className="text-2xl font-bold text-kyndryl-orange">Log File Settings</h2>
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <h3 className="text-md font-semibold text-blue-800 mb-2">Log Configuration</h3>
-        <p className="text-sm text-blue-700">
-          Configure log file location and retention settings. The system will automatically clean up old log entries to maintain the maximum number specified.
-        </p>
-      </div>
-
-      {/* Cleanup Status Message */}
-      {cleanupMessage && (
-        <div className={`p-3 mb-4 rounded-lg border ${
-          cleanupSuccess === true 
-            ? "bg-green-50 border-green-300 text-green-800" 
-            : cleanupSuccess === false
-              ? "bg-red-50 border-red-300 text-red-800"
-              : "bg-blue-50 border-blue-300 text-blue-800"
-        }`}>
-          {cleanupSuccess === true ? "✅ " : cleanupSuccess === false ? "❌ " : "ℹ️ "}
-          {cleanupMessage}
+      {/* Debug: Force show branch error dialog for testing */}
+      {/* Uncomment the next line to test the dialog UI:
+      {true && (
+        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+          <div className="flex items-center mb-3">
+            <span className="text-xl mr-2">⚠️</span>
+            <h3 className="text-md font-semibold text-yellow-800">Branch Not Found (TEST)</h3>
+          </div>
+          <p className="text-sm text-yellow-700 mb-4">
+            The specified branch "main-3" does not exist in the remote repository.
+          </p>
+          <div className="flex gap-2">
+            <button className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+              Create Branch
+            </button>
+            <button className="flex-1 bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+              Cancel
+            </button>
+          </div>
         </div>
       )}
+      */}
 
-      <div className="grid grid-cols-1 gap-4">
-        <div>
-          <label className="block font-semibold mb-1">Log File Location</label>
-          <input
-            type="text"
-            value={logFileLocation}
-            onChange={(e) => setLogFileLocation(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2"
-            placeholder="./logs/predictions.log"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Path to the predictions log file. Used by the Logs page to read log entries.
-          </p>
-        </div>
-
-        <div>
-          <label className="block font-semibold mb-1">Max Log Entries</label>
-          <input
-            type="number"
-            value={maxLogEntries}
-            onChange={(e) => setMaxLogEntries(parseInt(e.target.value) || 50000)}
-            className="w-full border border-gray-300 rounded px-3 py-2"
-            placeholder="50000"
-            min="1000"
-            max="1000000"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Maximum number of log entries to keep. When this limit is reached, older entries will be automatically removed. 
-            The system checks this limit automatically every 24 hours.
-          </p>
-        </div>
-      </div>
-
-      <div className="flex gap-2 mt-6">
-        <button
-          onClick={handleSaveConfig}
-          className="flex-1 bg-kyndryl-orange text-white font-bold py-2 px-4 rounded hover:bg-orange-600"
-        >
-          Save & Apply Settings
-        </button>
-        
-        <button
-          onClick={handleManualCleanup}
-          disabled={isCleaningLogs}
-          className={`flex-1 ${
-            isCleaningLogs 
-              ? "bg-gray-400 cursor-not-allowed" 
-              : "bg-blue-600 hover:bg-blue-700"
-          } text-white font-bold py-2 px-4 rounded`}
-        >
-          {isCleaningLogs ? "Cleaning..." : "Clean Logs Now"}
-        </button>
-      </div>
-      
-      <div className="mt-4 text-xs text-gray-500">
-        <p>
-          <strong>Note:</strong> The system automatically cleans up log entries every 24 hours to maintain the specified maximum. 
-          You can also trigger a manual cleanup by clicking the "Clean Logs Now" button.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function GitHubConfigPanel({ 
-  localGithubToken, 
-  setLocalGithubToken, 
-  localGithubUsername,
-  setLocalGithubUsername,
-  localRepositoryUrl, 
-  setLocalRepositoryUrl, 
-  localBranchName, 
-  setLocalBranchName, 
-  handleGitAction, 
-  gitStatus,
-  showStatusMessage,
-  markConfigAsEdited 
-}) {
-  const { saveGithubSettings, config } = useConfigStore();
-  
-  // Use hasToken from config instead of separate API call
-  const tokenExists = config?.github?.hasToken || false;
-
-  // Debug log
-  console.log("GitHubConfigPanel - tokenExists from config:", tokenExists);
-
-  const handleSaveGithubConfig = async () => {
-    try {
-      const config = {
-        repositoryUrl: localRepositoryUrl,
-        branchName: localBranchName || "main",
-        githubUsername: localGithubUsername
-      };
-
-      // Use the store function to save both config and token
-      await saveGithubSettings(localGithubToken, config);
-      
-      // Mark GitHub config as edited
-      markConfigAsEdited("github");
-      
-      showStatusMessage("GitHub configuration saved successfully!");
-      
-      // Clear the token from the input for security
-      setLocalGithubToken("");
-      
-      // The tokenExists will automatically update when config reloads
-      
-    } catch (error) {
-      console.error("Error saving GitHub configuration:", error);
-      showStatusMessage("Failed to save GitHub configuration: " + error.message, true);
-    }
-  };
-  return (
-    <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200">
-      <div className="flex items-center mb-6">
-        <span className="text-2xl mr-3">📁</span>
-        <h2 className="text-2xl font-bold text-kyndryl-orange">GitHub Integration</h2>
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <h3 className="text-md font-semibold text-blue-800 mb-2">Source Control Integration</h3>
-        <p className="text-sm text-blue-700">
-          Configure GitHub integration for version control and collaboration.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4">
-        <div>
-          <label className="block font-semibold mb-1">GitHub Token</label>
-          <div className="flex gap-2 items-center">
-            <input
-              type="password"
-              value={localGithubToken}
-              onChange={(e) => setLocalGithubToken(e.target.value)}
-              className="flex-1 border border-gray-300 rounded px-3 py-2"
-              placeholder={tokenExists ? "Token is already configured" : "ghp_xxxxxxxxxxxxxxxxxxxx"}
-            />
-            {tokenExists && (
-              <span className="text-green-600 text-sm font-medium">✓ Configured</span>
-            )}
+      {/* Branch Not Found Error Dialog */}
+      {branchNotFoundError && (
+        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+          <div className="flex items-center mb-3">
+            <span className="text-xl mr-2">⚠️</span>
+            <h3 className="text-md font-semibold text-yellow-800">Branch Not Found</h3>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            {tokenExists 
-              ? "Personal access token is securely stored. Enter a new token to update it." 
-              : "Personal access token for GitHub API access"
-            }
+          <p className="text-sm text-yellow-700 mb-4">
+            The specified branch "{branchNotFoundError.branchName}" does not exist in the remote repository.
           </p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleCreateBranch}
+              disabled={createBranchLoading}
+              className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+              {createBranchLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Creating...
+                </>
+              ) : (
+                "Create Branch"
+              )}
+            </button>
+            <button
+              onClick={handleCancelBranchCreation}
+              disabled={createBranchLoading}
+              className="flex-1 bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
-
-        <div>
-          <label className="block font-semibold mb-1">GitHub Username</label>
-          <input
-            type="text"
-            value={localGithubUsername}
-            onChange={(e) => setLocalGithubUsername(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2"
-            placeholder="your-github-username (not email)"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Your GitHub username (e.g., mceballos65) - NOT your email address
-          </p>
-        </div>
-
-        <div>
-          <label className="block font-semibold mb-1">Repository URL</label>
-          <input
-            type="text"
-            value={localRepositoryUrl}
-            onChange={(e) => setLocalRepositoryUrl(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2"
-            placeholder="https://github.com/username/repository.git"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Full URL to your GitHub repository
-          </p>
-        </div>
-
-        <div>
-          <label className="block font-semibold mb-1">Branch Name</label>
-          <input
-            type="text"
-            value={localBranchName}
-            onChange={(e) => setLocalBranchName(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2"
-            placeholder="main"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Git branch to work with
-          </p>
-        </div>
-      </div>
-
-      <div className="flex gap-2 mt-6">
-        <button
-          onClick={handleSaveGithubConfig}
-          className="flex-1 bg-kyndryl-orange text-white px-4 py-2 rounded hover:bg-orange-600 font-medium"
-        >
-          💾 Save Configuration
-        </button>
-      </div>
-
-      <div className="flex gap-2 mt-4">
-        <button
-          onClick={() => handleGitAction("pull")}
-          className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-        >
-          Git Pull
-        </button>
-        <button
-          onClick={() => handleGitAction("push")}
-          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          Git Push
-        </button>
-      </div>
+      )}
 
       {gitStatus && (
         <pre className="mt-4 p-3 bg-gray-100 rounded text-xs whitespace-pre-wrap">
@@ -1889,3 +1973,5 @@ function ComponentsPanel({ showStatusMessage }) {
     </div>
   );
 }
+
+

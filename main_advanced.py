@@ -39,7 +39,11 @@ from user_encryption import (
     save_github_token,
     get_github_token,
     delete_github_token,
-    github_token_exists
+    github_token_exists,
+    save_github_credentials,
+    get_github_credentials,
+    delete_github_credentials,
+    github_credentials_exist
 )
 
 # Importar config_handler para los nuevos endpoints
@@ -2157,4 +2161,118 @@ async def delete_github_token_endpoint():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting GitHub token: {str(e)}")
 
+@app.post("/git/create-branch")
+def git_create_branch(request: dict):
+    """Create a new branch in the repository"""
+    try:
+        branch_name = request.get("branchName")
+        if not branch_name:
+            raise HTTPException(status_code=400, detail="Branch name is required")
+        
+        # Get GitHub config from encrypted storage
+        github_config = get_github_config()
+        
+        if not github_config:
+            raise HTTPException(
+                status_code=400,
+                detail="No GitHub configuration found. Please configure GitHub settings first."
+            )
+        
+        local_path = github_config["localPath"]
+        repo_url = github_config["repositoryUrl"]
+        username = github_config["githubUsername"]
+        token = github_config["githubToken"]
+        
+        # Create authenticated URL
+        repo_url_with_auth = repo_url.replace(
+            "https://", f"https://{username}:{token}@"
+        )
+        
+        # Set the remote URL with authentication
+        run_git_command(["git", "remote", "set-url", "origin", repo_url_with_auth], local_path)
+        
+        # Fetch the latest changes from remote
+        run_git_command(["git", "fetch", "origin"], local_path)
+        
+        # Create and checkout the new branch
+        run_git_command(["git", "checkout", "-b", branch_name], local_path)
+        
+        # Push the new branch to remote
+        result = run_git_command(["git", "push", "-u", "origin", branch_name], local_path)
+        
+        return {
+            **result,
+            "message": f"Branch '{branch_name}' created and pushed successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating branch: {str(e)}")
+
 # ========================================
+# GITHUB CREDENTIALS MANAGEMENT ENDPOINTS
+# ========================================
+
+class GitHubCredentialsRequest(BaseModel):
+    token: str
+    username: str
+
+@app.post("/github/save-credentials")
+async def save_github_credentials_endpoint(credentials: GitHubCredentialsRequest):
+    """Save GitHub credentials (token and username) securely in encrypted storage"""
+    try:
+        token = credentials.token.strip()
+        username = credentials.username.strip()
+        
+        if not token or not username:
+            raise HTTPException(status_code=400, detail="Both token and username are required")
+        
+        from user_encryption import save_github_credentials
+        success = save_github_credentials(token, username)
+        
+        if success:
+            return {
+                "success": True,
+                "message": "GitHub credentials saved securely"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to save GitHub credentials")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving GitHub credentials: {str(e)}")
+
+@app.get("/github/check-credentials")
+async def check_github_credentials():
+    """Check if GitHub credentials exist and return username if available"""
+    try:
+        from user_encryption import get_github_credentials
+        credentials = get_github_credentials()
+        
+        return {
+            "has_credentials": credentials["has_credentials"],
+            "username": credentials["username"] if credentials["has_credentials"] else "",
+            "message": "Credentials found" if credentials["has_credentials"] else "No credentials found"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking GitHub credentials: {str(e)}")
+
+@app.delete("/github/delete-credentials")
+async def delete_github_credentials_endpoint():
+    """Delete GitHub credentials from encrypted storage"""
+    try:
+        from user_encryption import delete_github_credentials
+        success = delete_github_credentials()
+        
+        if success:
+            return {
+                "success": True,
+                "message": "GitHub credentials deleted successfully"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to delete GitHub credentials")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting GitHub credentials: {str(e)}")

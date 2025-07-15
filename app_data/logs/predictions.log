@@ -424,3 +424,117 @@
 2025-07-14 13:35:04,739 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
 2025-07-14 14:05:10,564 - Use pytorch device_name: cpu
 2025-07-14 14:05:10,565 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 14:43:02,137 - Use pytorch device_name: cpu
+2025-07-14 14:43:02,138 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 14:51:02,524 - Use pytorch device_name: cpu
+2025-07-14 14:51:02,525 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 14:55:13,749 - Use pytorch device_name: cpu
+2025-07-14 14:55:13,749 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:05:58,627 - Use pytorch device_name: cpu
+2025-07-14 15:05:58,628 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:10:59,913 - Use pytorch device_name: cpu
+2025-07-14 15:10:59,913 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:13:43,838 - Use pytorch device_name: cpu
+2025-07-14 15:13:43,839 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:17:23,740 - Use pytorch device_name: cpu
+2025-07-14 15:17:23,741 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:18:40,638 - Use pytorch device_name: cpu
+2025-07-14 15:18:40,638 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:24:09,208 - Use pytorch device_name: cpu
+2025-07-14 15:24:09,209 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:25:36,149 - Use pytorch device_name: cpu
+2025-07-14 15:25:36,150 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-14 15:25:58,677 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-14 15:25:58,682 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-14 15:25:58,691 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-14 15:25:58,704 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-14 15:29:04,429 - Use pytorch device_name: cpu
+2025-07-14 15:29:04,429 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-15 07:11:11,200 - Use pytorch device_name: cpu
+2025-07-15 07:11:11,201 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-15 07:14:52,570 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:14:52,581 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:14:52,610 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 07:14:52,618 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 07:15:45,624 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:15:45,637 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:15:45,640 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 07:15:45,706 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 07:29:39,954 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:29:39,967 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:29:39,974 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 07:29:40,004 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 07:29:51,658 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:29:51,663 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 07:29:51,667 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 07:29:51,682 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:20:15,285 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:20:15,290 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:20:15,296 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:20:15,323 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:20:29,581 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:20:29,595 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:20:29,597 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:20:29,637 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:21:12,485 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:21:12,496 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:21:12,501 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:21:12,523 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:31:55,086 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:31:55,092 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:31:55,098 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:31:55,119 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:33:21,044 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:33:21,054 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:33:21,060 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:33:21,096 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:52:20,095 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:52:20,105 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 08:52:20,109 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:52:20,131 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 08:55:50,506 - Use pytorch device_name: cpu
+2025-07-15 08:55:50,506 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-15 09:06:42,234 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:06:42,239 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:06:42,269 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:06:42,296 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:07:25,284 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:07:25,290 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:07:25,298 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:07:25,343 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:36:14,725 - Use pytorch device_name: cpu
+2025-07-15 09:36:14,726 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-15 09:37:27,739 - Use pytorch device_name: cpu
+2025-07-15 09:37:27,739 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-15 09:40:18,025 - Use pytorch device_name: cpu
+2025-07-15 09:40:18,026 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-15 09:44:05,804 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:44:05,811 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:44:05,821 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:44:05,846 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:44:37,350 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:44:37,355 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:44:37,365 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:44:37,384 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:44:52,977 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:44:52,987 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:44:52,989 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:44:53,019 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:45:03,945 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:45:03,953 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:45:03,957 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:45:03,973 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:45:56,574 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:45:56,585 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:45:56,588 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:45:56,615 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:46:30,447 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:46:30,455 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-15 09:46:30,460 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:46:30,493 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-15 09:59:18,413 - Use pytorch device_name: cpu
+2025-07-15 09:59:18,414 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-15 10:00:29,996 - Use pytorch device_name: cpu
+2025-07-15 10:00:29,997 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
+2025-07-15 10:05:51,114 - Use pytorch device_name: cpu
+2025-07-15 10:05:51,115 - Load pretrained SentenceTransformer: C:\Users\MauroEzequielCeballo/all-mpnet-base-v2
