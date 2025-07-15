@@ -43,15 +43,15 @@ function GitHubConfigPanel({
   const checkGitHubCredentials = async () => {
     setCheckingCredentials(true);
     try {
-      const response = await fetch(`${getBackendUrl()}/github/check-credentials`, {
+      const response = await fetch(`${getBackendUrl()}/config/github/token/exists`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
       const data = await response.json();
-      setHasCredentials(data.has_credentials || false);
+      setHasCredentials(data.hasToken || false);
       
       // Load username from backend if credentials exist
-      if (data.has_credentials && data.username) {
+      if (data.hasToken && data.username) {
         setLocalGithubUsername(data.username);
       }
     } catch (error) {
@@ -70,7 +70,7 @@ function GitHubConfigPanel({
 
     setSavingCredentials(true);
     try {
-      const response = await fetch(`${getBackendUrl()}/github/save-credentials`, {
+      const response = await fetch(`${getBackendUrl()}/config/github/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -104,7 +104,7 @@ function GitHubConfigPanel({
     }
 
     try {
-      const response = await fetch(`${getBackendUrl()}/github/delete-credentials`, {
+      const response = await fetch(`${getBackendUrl()}/config/github/token`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -1103,6 +1103,11 @@ export default function ConfigurationPage() {
             shouldHighlightSecurity={shouldHighlightSecurity}
             securityWarning={securityWarning}
             changeActivePanel={changeActivePanel}
+            branchNotFoundError={branchNotFoundError}
+            handleCreateBranch={handleCreateBranch}
+            handleCancelBranchCreation={handleCancelBranchCreation}
+            createBranchLoading={createBranchLoading}
+            gitStatus={gitStatus}
           />}
 
           {activePanel === "logs" && <LogConfigPanel 
@@ -1366,7 +1371,12 @@ function AdminSecurityPanel({
   reloadConfig, 
   shouldHighlightSecurity, 
   securityWarning,
-  changeActivePanel // Add this to allow navigation to user management
+  changeActivePanel, // Add this to allow navigation to user management
+  branchNotFoundError,
+  handleCreateBranch,
+  handleCancelBranchCreation,
+  createBranchLoading,
+  gitStatus
 }) {
   // Estado local para manejar el toggle de protección de la página de debug
   const [isDebugProtected, setIsDebugProtected] = useState(debugRequiresAuth);
@@ -1555,6 +1565,75 @@ function AdminSecurityPanel({
           }}
           disabled={adminUserDisabled || !hasAlternativeUsers}
           className={`px-4 py-2 text-sm text-white font-medium rounded ${(adminUserDisabled || !hasAlternativeUsers) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+        >
+          Apply Security Setting
+        </button>
+      </div>
+
+      {/* Debug Page Access Restriction Setting */}
+      <div className={`flex items-center space-x-2 mb-6 p-3 rounded-lg ${highlightDebugAccess ? 'border-2 border-red-500 bg-red-50' : ''}`}>
+        {highlightDebugAccess && (
+          <div className="mr-2 text-red-500 text-xl">🚨</div>
+        )}
+        <div className="flex-1">
+          <label className="inline-flex items-center cursor-pointer">
+            <input 
+              type="checkbox" 
+              checked={isDebugProtected} 
+              onChange={async (e) => {
+                const newValue = e.target.checked;
+                setIsDebugProtected(newValue);
+                
+                try {
+                  // Update backend configuration
+                  await updateConfig({
+                    security: { debug_requires_auth: newValue }
+                  });
+                  
+                  markConfigAsEdited("security");
+                  showStatusMessage(newValue ? '🔒 Debug page access is now restricted to authenticated users' : '⚠️ Warning: Debug page is now publicly accessible');
+                  
+                  // Update localStorage for immediate effect
+                  localStorage.setItem('debugRequiresAuth', newValue ? 'true' : 'false');
+                  
+                  // Reload configuration from backend to ensure UI shows real state
+                  await reloadConfig();
+                } catch (error) {
+                  setIsDebugProtected(!newValue); // Revert on error
+                  showStatusMessage(`Error updating debug access configuration: ${error.message}`, true);
+                }
+              }}
+              className="sr-only peer" 
+            />
+            <div className={`relative w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 ${isDebugProtected ? 'peer-checked:bg-green-600' : 'peer-checked:bg-gray-400'}`}></div>
+            <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
+              Restrict Debug Page Access
+            </span>
+          </label>
+        </div>
+        <button 
+          onClick={async () => {
+            try {
+              // Update backend configuration
+              await updateConfig({
+                security: { debug_requires_auth: true }
+              });
+              
+              setIsDebugProtected(true);
+              markConfigAsEdited("security");
+              showStatusMessage("🔒 Security improvement applied: Debug page access is now restricted to authenticated users!");
+              
+              // Update localStorage for immediate effect
+              localStorage.setItem('debugRequiresAuth', 'true');
+              
+              // Reload configuration from backend to ensure UI shows real state
+              await reloadConfig();
+            } catch (error) {
+              showStatusMessage(`Error applying security setting: ${error.message}`, true);
+            }
+          }}
+          disabled={isDebugProtected}
+          className={`px-4 py-2 text-sm text-white font-medium rounded ${isDebugProtected ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
         >
           Apply Security Setting
         </button>
@@ -1760,7 +1839,7 @@ function ComponentsPanel({ showStatusMessage }) {
           <form onSubmit={handleAddComponent} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block font-medium mb-1">Name *</label>
+                               <label className="block font-medium mb-1">Name *</label>
                 <input
                   type="text"
                   value={newComponent.name}
@@ -1969,6 +2048,233 @@ function ComponentsPanel({ showStatusMessage }) {
           <li>• Component values should be created matching the component sent by the monitoring tool</li>          
           <li>• Changes take effect immediately across the application</li>
         </ul>
+      </div>
+    </div>
+  );
+}
+
+function LogConfigPanel({ updateConfig, markConfigAsEdited, showStatusMessage }) {
+  const [localLogFile, setLocalLogFile] = useState("");
+  const [localMaxEntries, setLocalMaxEntries] = useState("");
+  const [cleanupStatus, setCleanupStatus] = useState(null);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(false);
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
+
+  // Load current configuration
+  useEffect(() => {
+    const config = useConfigStore.getState().config;
+    if (config?.logging) {
+      setLocalLogFile(config.logging.file_location || "./app_data/logs/predictions.log");
+      setLocalMaxEntries(config.logging.max_entries?.toString() || "50000");
+    }
+  }, []);
+
+  // Fetch cleanup status
+  const fetchCleanupStatus = async () => {
+    setIsLoadingStatus(true);
+    try {
+      const response = await fetch(`${getBackendUrl()}/api/logs/cleanup/status`);
+      if (response.ok) {
+        const status = await response.json();
+        setCleanupStatus(status);
+      } else {
+        showStatusMessage("❌ Failed to fetch log cleanup status", true);
+      }
+    } catch (error) {
+      showStatusMessage("❌ Error fetching cleanup status: " + error.message, true);
+    } finally {
+      setIsLoadingStatus(false);
+    }
+  };
+
+  // Manual cleanup
+  const handleManualCleanup = async () => {
+    setIsCleaningUp(true);
+    try {
+      const response = await fetch(`${getBackendUrl()}/api/logs/cleanup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          showStatusMessage(`✅ ${result.message}`);
+          fetchCleanupStatus(); // Refresh status
+        } else {
+          showStatusMessage(`❌ Cleanup failed: ${result.message}`, true);
+        }
+      } else {
+        showStatusMessage("❌ Failed to perform cleanup", true);
+      }
+    } catch (error) {
+      showStatusMessage("❌ Error during cleanup: " + error.message, true);
+    } finally {
+      setIsCleaningUp(false);
+    }
+  };
+
+  // Save log configuration
+  const handleSaveLogConfig = async () => {
+    try {
+      const maxEntries = parseInt(localMaxEntries);
+      if (isNaN(maxEntries) || maxEntries <= 0) {
+        showStatusMessage("❌ Max entries must be a positive number", true);
+        return;
+      }
+
+      const response = await fetch(`${getBackendUrl()}/api/config/logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          file_location: localLogFile.trim(),
+          max_entries: maxEntries
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          showStatusMessage("✅ Log configuration updated successfully");
+          markConfigAsEdited("logging");
+          fetchCleanupStatus(); // Refresh status
+        } else {
+          showStatusMessage(`❌ Failed to update: ${result.message}`, true);
+        }
+      } else {
+        showStatusMessage("❌ Failed to save log configuration", true);
+      }
+    } catch (error) {
+      showStatusMessage("❌ Error saving configuration: " + error.message, true);
+    }
+  };
+
+  // Load status on component mount
+  useEffect(() => {
+    fetchCleanupStatus();
+  }, []);
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  return (
+    <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200">
+      <div className="flex items-center mb-6">
+        <span className="text-2xl mr-3">📋</span>
+        <h2 className="text-2xl font-bold text-kyndryl-orange">Log Configuration</h2>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <h3 className="text-md font-semibold text-blue-800 mb-2">Log Management Settings</h3>
+        <p className="text-sm text-blue-700">
+          Configure log file location and automatic cleanup settings. The system automatically cleans up old log entries to maintain performance.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        {/* Log Configuration */}
+        <div className="space-y-4">
+          <div>
+            <label className="block font-semibold mb-1">Log File Location</label>
+            <input
+              type="text"
+              value={localLogFile}
+              onChange={(e) => setLocalLogFile(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-2"
+              placeholder="./app_data/logs/predictions.log"
+            />
+            <p className="text-sm text-gray-600 mt-1">
+              Path where prediction logs are stored
+            </p>
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1">Maximum Log Entries</label>
+            <input
+              type="number"
+              value={localMaxEntries}
+              onChange={(e) => setLocalMaxEntries(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-2"
+              placeholder="50000"
+              min="1"
+            />
+            <p className="text-sm text-gray-600 mt-1">
+              Maximum number of log entries to keep. Older entries are automatically removed.
+            </p>
+          </div>
+
+          <button
+            onClick={handleSaveLogConfig}
+            className="bg-kyndryl-orange text-white px-4 py-2 rounded hover:bg-kyndryl-orange/80 font-semibold"
+          >
+            Save Log Configuration
+          </button>
+        </div>
+
+        {/* Log Status */}
+        <div className="border-t pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Log Status</h3>
+            <button
+              onClick={fetchCleanupStatus}
+              disabled={isLoadingStatus}
+              className="text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50"
+            >
+              {isLoadingStatus ? "Loading..." : "Refresh"}
+            </button>
+          </div>
+
+          {cleanupStatus && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-3 rounded">
+                  <div className="text-sm font-medium text-gray-700">Current Entries</div>
+                  <div className="text-lg">{cleanupStatus.log_config?.current_entries?.toLocaleString() || 'N/A'}</div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded">
+                  <div className="text-sm font-medium text-gray-700">File Size</div>
+                  <div className="text-lg">{cleanupStatus.log_config?.file_size_bytes ? formatFileSize(cleanupStatus.log_config.file_size_bytes) : 'N/A'}</div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded">
+                  <div className="text-sm font-medium text-gray-700">Last Cleanup</div>
+                  <div className="text-sm">{cleanupStatus.last_cleanup ? new Date(cleanupStatus.last_cleanup).toLocaleString() : 'Never'}</div>
+                </div>
+                <div className="bg-gray-50 p-3 rounded">
+                  <div className="text-sm font-medium text-gray-700">Cleanup Thread</div>
+                  <div className={`text-sm font-medium ${cleanupStatus.cleanup_thread_status === 'running' ? 'text-green-600' : 'text-red-600'}`}>
+                    {cleanupStatus.cleanup_thread_status || 'Unknown'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={handleManualCleanup}
+                  disabled={isCleaningUp}
+                  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isCleaningUp ? "Cleaning..." : "Manual Cleanup"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Info Section */}
+        <div className="bg-blue-50 border border-blue-200 rounded p-4">
+          <h4 className="font-semibold text-blue-800 mb-2">ℹ️ Information</h4>
+          <ul className="text-sm text-blue-700 space-y-1">
+            <li>• Log cleanup runs automatically every 24 hours</li>
+            <li>• Manual cleanup can be triggered anytime using the button above</li>
+            <li>• Only the most recent entries (up to max entries) are kept</li>
+            <li>• Changes to max entries take effect immediately when saved</li>
+          </ul>
+        </div>
       </div>
     </div>
   );

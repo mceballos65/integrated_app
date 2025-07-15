@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import useConfigStore from '../store';
+import { getBackendUrl } from '../configStorage';
 
 const useComponents = (includeDisabled = false) => {
   const { config } = useConfigStore();
@@ -7,18 +8,18 @@ const useComponents = (includeDisabled = false) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Get backend URL from config
-  const getBackendUrl = () => {
-    return config?.app?.prediction_url || '';
+  // Get backend URL from config - use main backend server
+  const getBackendUrlForComponents = () => {
+    return getBackendUrl();
   };
 
   const fetchComponents = async () => {
     setLoading(true);
     setError(null);
     
-    const backendUrl = getBackendUrl();
+    const backendUrl = getBackendUrlForComponents();
     if (!backendUrl) {
-      setError('Prediction URL not configured in App Configuration');
+      setError('Backend URL not configured');
       setLoading(false);
       return;
     }
@@ -51,9 +52,9 @@ const useComponents = (includeDisabled = false) => {
   };
 
   const addComponent = async (newComponent) => {
-    const backendUrl = getBackendUrl();
+    const backendUrl = getBackendUrlForComponents();
     if (!backendUrl) {
-      setError('Prediction URL not configured in App Configuration');
+      setError('Backend URL not configured');
       return null;
     }
 
@@ -82,9 +83,9 @@ const useComponents = (includeDisabled = false) => {
   };
 
   const updateComponent = async (componentId, updates) => {
-    const backendUrl = getBackendUrl();
+    const backendUrl = getBackendUrlForComponents();
     if (!backendUrl) {
-      setError('Prediction URL not configured in App Configuration');
+      setError('Backend URL not configured');
       return false;
     }
 
@@ -111,9 +112,9 @@ const useComponents = (includeDisabled = false) => {
   };
 
   const removeComponent = async (componentId) => {
-    const backendUrl = getBackendUrl();
+    const backendUrl = getBackendUrlForComponents();
     if (!backendUrl) {
-      setError('Prediction URL not configured in App Configuration');
+      setError('Backend URL not configured');
       return false;
     }
 
@@ -138,9 +139,9 @@ const useComponents = (includeDisabled = false) => {
   };
 
   const toggleComponent = async (componentId) => {
-    const backendUrl = getBackendUrl();
+    const backendUrl = getBackendUrlForComponents();
     if (!backendUrl) {
-      setError('Prediction URL not configured in App Configuration');
+      setError('Backend URL not configured');
       return false;
     }
 
@@ -177,10 +178,11 @@ const useComponents = (includeDisabled = false) => {
   };
 
   useEffect(() => {
-    if (config?.app?.prediction_url) {
+    const backendUrl = getBackendUrlForComponents();
+    if (backendUrl) {
       fetchComponents();
     }
-  }, [config?.app?.prediction_url]);
+  }, []);
 
   return {
     components,

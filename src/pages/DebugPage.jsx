@@ -277,6 +277,71 @@ const DebugPage = () => {
     <div className="min-h-screen bg-gray-100 py-8">
       <div className="max-w-4xl mx-auto px-4">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">🔧 Debug Page</h1>
+        
+        {/* Quick Actions - Moved to top */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">🚀 Quick Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <button
+              onClick={() => setCustomUrl('http://localhost:8000')}
+              className="p-3 text-left border border-gray-200 rounded hover:bg-gray-50"
+            >
+              <div className="font-medium">Local Backend</div>
+              <div className="text-sm text-gray-500">http://localhost:8000</div>
+            </button>
+            
+            <button
+              onClick={() => setCustomUrl('http://127.0.0.1:8000')}
+              className="p-3 text-left border border-gray-200 rounded hover:bg-gray-50"
+            >
+              <div className="font-medium">Alternative Local</div>
+              <div className="text-sm text-gray-500">http://127.0.0.1:8000</div>
+            </button>
+            
+            <button
+              onClick={() => window.location.href = '/'}
+              className="p-3 text-left border border-gray-200 rounded hover:bg-gray-50"
+            >
+              <div className="font-medium">Go to App</div>
+              <div className="text-sm text-gray-500">Return to main app</div>
+            </button>
+            
+            <button
+              onClick={toggleDebugAccess}
+              className={`p-3 text-left border rounded hover:bg-opacity-80 ${
+                debugRequiresAuth 
+                  ? 'border-green-200 hover:bg-green-50 text-green-700' 
+                  : 'border-red-200 hover:bg-red-50 text-red-700'
+              }`}
+            >
+              <div className="font-medium">
+                {debugRequiresAuth ? '🔓 Make Debug Page Public' : '🔒 Restrict Debug Access'}
+              </div>
+              <div className={`text-sm ${debugRequiresAuth ? 'text-green-500' : 'text-red-500'}`}>
+                {debugRequiresAuth ? 'Allow access without login' : 'Require authentication'}
+              </div>
+            </button>
+            
+            <button
+              onClick={() => {
+                if (confirm('¿Estás seguro que deseas restringir el acceso a la página Debug? Después de esto, los usuarios necesitarán iniciar sesión para acceder.')) {
+                  // Set flag to require authentication for Debug page
+                  localStorage.setItem('debugRequiresAuth', 'true');
+                  setDebugRequiresAuth(true);
+                  alert('Acceso restringido. Ahora los usuarios necesitan iniciar sesión para acceder a la página Debug.');
+                }
+              }}
+              className="p-3 text-left border border-red-200 rounded hover:bg-red-50 text-red-700"
+              disabled={debugRequiresAuth}
+            >
+              <div className="font-medium">🔒 Disable Public Debug</div>
+              <div className="text-sm text-red-500">
+                {debugRequiresAuth ? 'Access already restricted' : 'Require login for this page'}
+              </div>
+            </button>
+          </div>
+        </div>
+
         {/* This code is commented due to initial admin creation functionality is removed */}
         {/* Security Warning
         {showSecurityWarning && (
@@ -535,70 +600,6 @@ const DebugPage = () => {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">🚀 Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <button
-              onClick={() => setCustomUrl('http://localhost:8000')}
-              className="p-3 text-left border border-gray-200 rounded hover:bg-gray-50"
-            >
-              <div className="font-medium">Local Backend</div>
-              <div className="text-sm text-gray-500">http://localhost:8000</div>
-            </button>
-            
-            <button
-              onClick={() => setCustomUrl('http://127.0.0.1:8000')}
-              className="p-3 text-left border border-gray-200 rounded hover:bg-gray-50"
-            >
-              <div className="font-medium">Alternative Local</div>
-              <div className="text-sm text-gray-500">http://127.0.0.1:8000</div>
-            </button>
-            
-            <button
-              onClick={() => window.location.href = '/'}
-              className="p-3 text-left border border-gray-200 rounded hover:bg-gray-50"
-            >
-              <div className="font-medium">Go to App</div>
-              <div className="text-sm text-gray-500">Return to main app</div>
-            </button>
-            
-            <button
-              onClick={toggleDebugAccess}
-              className={`p-3 text-left border rounded hover:bg-opacity-80 ${
-                debugRequiresAuth 
-                  ? 'border-green-200 hover:bg-green-50 text-green-700' 
-                  : 'border-red-200 hover:bg-red-50 text-red-700'
-              }`}
-            >
-              <div className="font-medium">
-                {debugRequiresAuth ? '🔓 Make Debug Page Public' : '🔒 Restrict Debug Access'}
-              </div>
-              <div className={`text-sm ${debugRequiresAuth ? 'text-green-500' : 'text-red-500'}`}>
-                {debugRequiresAuth ? 'Allow access without login' : 'Require authentication'}
-              </div>
-            </button>
-            
-            <button
-              onClick={() => {
-                if (confirm('¿Estás seguro que deseas restringir el acceso a la página Debug? Después de esto, los usuarios necesitarán iniciar sesión para acceder.')) {
-                  // Set flag to require authentication for Debug page
-                  localStorage.setItem('debugRequiresAuth', 'true');
-                  setDebugRequiresAuth(true);
-                  alert('Acceso restringido. Ahora los usuarios necesitan iniciar sesión para acceder a la página Debug.');
-                }
-              }}
-              className="p-3 text-left border border-red-200 rounded hover:bg-red-50 text-red-700"
-              disabled={debugRequiresAuth}
-            >
-              <div className="font-medium">🔒 Disable Public Debug</div>
-              <div className="text-sm text-red-500">
-                {debugRequiresAuth ? 'Access already restricted' : 'Require login for this page'}
-              </div>
-            </button>
           </div>
         </div>
       </div>

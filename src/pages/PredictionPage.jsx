@@ -54,7 +54,7 @@ export default function PredictionPage() {
   const [newItem, setNewItem] = useState({ ...defaultItem });
   const [statusMessage, setStatusMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [componentFilter, setComponentFilter] = useState("all"); // New component filter
+  const [componentFilter, setComponentFilter] = useState("all"); // Component filter using enabled components
   const [statusFilter, setStatusFilter] = useState("all"); // "all", "enabled", or "disabled"
   const [disabledMatchers, setDisabledMatchers] = useState([]);
   const [loadingMatcherStatus, setLoadingMatcherStatus] = useState(false);
@@ -161,7 +161,7 @@ export default function PredictionPage() {
     );
     
     // Apply component filter
-    if (componentFilter !== "all") {
+    if (componentFilter !== "all" && componentFilter !== "") {
       filtered = filtered.filter(item => 
         item.component === componentFilter
       );
@@ -334,17 +334,13 @@ export default function PredictionPage() {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-gray-700 whitespace-nowrap text-sm">Component:</span>
-                <select
-                  value={componentFilter}
-                  onChange={(e) => setComponentFilter(e.target.value)}
+                <ComponentSelector
+                  value={componentFilter === "all" ? "" : componentFilter}
+                  onChange={(e) => setComponentFilter(e.target.value || "all")}
                   className="border border-gray-300 rounded px-2 py-1 bg-white text-sm min-w-[120px]"
-                >
-                  <option value="all">All</option>
-                  {/* Get unique components from items */}
-                  {[...new Set(items.map(item => item.component).filter(Boolean))].sort().map(component => (
-                    <option key={component} value={component}>{component}</option>
-                  ))}
-                </select>
+                  placeholder="All"
+                  includeEmpty={true}
+                />
               </div>
               
               <div className="flex items-center gap-2">
