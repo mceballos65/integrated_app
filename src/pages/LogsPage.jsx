@@ -113,10 +113,23 @@ export default function LogsPage() {
     
     // Apply sorting
     filtered.sort((a, b) => {
-      const timeA = new Date(a.timestamp.replace(',', '.'));
-      const timeB = new Date(b.timestamp.replace(',', '.'));
-      
-      return sortOrder === "newest" ? timeB - timeA : timeA - timeB;
+      if (sortOrder === "highest_score" || sortOrder === "lowest_score") {
+        // Sort by score - handle logs without score by treating them as 0
+        const scoreA = a.score ? parseFloat(a.score) : 0;
+        const scoreB = b.score ? parseFloat(b.score) : 0;
+        
+        if (sortOrder === "highest_score") {
+          return scoreB - scoreA; // Highest score first
+        } else {
+          return scoreA - scoreB; // Lowest score first
+        }
+      } else {
+        // Sort by timestamp (existing functionality)
+        const timeA = new Date(a.timestamp.replace(',', '.'));
+        const timeB = new Date(b.timestamp.replace(',', '.'));
+        
+        return sortOrder === "newest" ? timeB - timeA : timeA - timeB;
+      }
     });
     
     return filtered;
@@ -535,6 +548,8 @@ export default function LogsPage() {
                   >
                     <option value="newest">Newest First</option>
                     <option value="oldest">Oldest First</option>
+                    <option value="highest_score">Highest Score</option>
+                    <option value="lowest_score">Lowest Score</option>
                   </select>
                 </div>
                 
@@ -669,8 +684,8 @@ export default function LogsPage() {
                                   </span>
                                   {log.score && (
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${
-                                      parseFloat(log.score) >= 0.7 ? 'bg-green-100 text-green-800 border-green-200' :
-                                      parseFloat(log.score) >= 0.5 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                                      parseFloat(log.score) >= 0.3 ? 'bg-green-100 text-green-800 border-green-200' :
+                                      parseFloat(log.score) >= 0.2 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
                                       'bg-red-100 text-red-800 border-red-200'
                                     }`}>
                                     Score: {Math.round(parseFloat(log.score) * 100)}%
@@ -744,8 +759,8 @@ export default function LogsPage() {
                                   <div className="flex items-center justify-between mb-1">
                                     <span className="text-xs font-semibold text-kyndryl-darkGray">AI Score</span>
                                     <div className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                                      parseFloat(log.score) >= 0.7 ? 'bg-green-100 text-green-800' :
-                                      parseFloat(log.score) >= 0.5 ? 'bg-yellow-100 text-yellow-800' :
+                                      parseFloat(log.score) >= 0.3 ? 'bg-green-100 text-green-800' :
+                                      parseFloat(log.score) >= 0.2 ? 'bg-yellow-100 text-yellow-800' :
                                       'bg-red-100 text-red-800'
                                     }`}>
                                       {Math.round(parseFloat(log.score) * 100)}%
@@ -754,8 +769,8 @@ export default function LogsPage() {
                                   <div className="w-full bg-gray-200 rounded-full h-1.5">
                                     <div 
                                       className={`h-1.5 rounded-full transition-all duration-500 ${
-                                        parseFloat(log.score) >= 0.7 ? 'bg-green-500' :
-                                        parseFloat(log.score) >= 0.5 ? 'bg-yellow-500' :
+                                        parseFloat(log.score) >= 0.3 ? 'bg-green-500' :
+                                        parseFloat(log.score) >= 0.2 ? 'bg-yellow-500' :
                                         'bg-red-500'
                                       }`}
                                       style={{ width: `${parseFloat(log.score) * 100}%` }}
