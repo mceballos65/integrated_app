@@ -14,8 +14,10 @@
     "admin_password_hash": ""
   },
   "github": {
-    "repo_url": "",
-    "branch": "main",
+    "githubUsername": "mceballos65",
+    "repositoryUrl": "https://github.com/test/test.git",
+    "branchName": "main",
+    "localPath": "./app_data/config",
     "token": ""
   },
   "edited_configs": {
