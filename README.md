@@ -208,3 +208,31 @@ module.exports = {
      ignored: ['**/venv/**', '**/node_modules/**', ...]
    }
    ```
+
+#### Problema 3: Configuración de Proxy para mayor seguridad
+**Necesidad**: Las llamadas HTTP del frontend se ejecutaban desde el navegador del cliente
+**Solución**: Configurar proxy en Vite para que las llamadas API se hagan desde el servidor frontend
+**Beneficios**: 
+- Solo el puerto 5173 expuesto (backend 8000 solo accesible internamente)
+- Sin problemas de CORS
+- Mejor seguridad
+- Single point of entry
+
+**Configuración aplicada en vite.config.js:**
+```javascript
+server: {
+  proxy: {
+    '/api': { target: 'http://localhost:8000' },
+    '/config': { target: 'http://localhost:8000' },
+    '/health': { target: 'http://localhost:8000' },
+    '/git': { target: 'http://localhost:8000' },
+    '/auth': { target: 'http://localhost:8000' },
+    '/users': { target: 'http://localhost:8000' }
+  }
+}
+```
+
+**Flujo resultante:**
+```
+[Cliente] --> [Frontend :5173] --> [Backend :8000 (interno)]
+```

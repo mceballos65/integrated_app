@@ -1846,3 +1846,18 @@
 2025-07-16 14:32:59 [INFO] APP_STARTUP: Attempting to connect to backend - {"backendUrl": "http://localhost:8000", "user": "anonymous", "session": "session_1752611372390_9diykf86o"}
 2025-07-16 14:32:59 [SUCCESS] APP_STARTUP: Application configuration loaded from backend successfully - {"user": "anonymous", "session": "session_1752611372390_9diykf86o"}
 2025-07-16 14:32:59 [SUCCESS] APP_STARTUP: Application configuration loaded from backend successfully - {"user": "anonymous", "session": "session_1752611372390_9diykf86o"}
+2025-07-16 16:20:23 [INFO] APP_STARTUP: Application initializing - {"user": "anonymous", "session": "session_1752682823808_oyaz2rzjf"}
+2025-07-16 16:20:23 [INFO] APP_STARTUP: Attempting to connect to backend - {"backendUrl": "http://localhost:8000", "user": "anonymous", "session": "session_1752682823808_oyaz2rzjf"}
+2025-07-16 16:20:23 [INFO] APP_STARTUP: Application initializing - {"user": "anonymous", "session": "session_1752682823808_oyaz2rzjf"}
+2025-07-16 16:20:23 [INFO] APP_STARTUP: Attempting to connect to backend - {"backendUrl": "http://localhost:8000", "user": "anonymous", "session": "session_1752682823808_oyaz2rzjf"}
+2025-07-16 16:20:24 [SUCCESS] APP_STARTUP: Application configuration loaded from backend successfully - {"user": "anonymous", "session": "session_1752682823808_oyaz2rzjf"}
+2025-07-16 16:20:24 [SUCCESS] APP_STARTUP: Application configuration loaded from backend successfully - {"user": "anonymous", "session": "session_1752682823808_oyaz2rzjf"}
+2025-07-16 16:20:33 [INFO] AUTH: User logged in: Mau - {"user": "anonymous", "session": "session_1752682823808_oyaz2rzjf"}
+2025-07-16 16:20:33 [INFO] APP_STARTUP: Application initializing - {"user": "anonymous", "session": "session_1752682823808_oyaz2rzjf"}
+2025-07-16 16:20:33 [INFO] APP_STARTUP: Attempting to connect to backend - {"backendUrl": "http://localhost:8000", "user": "anonymous", "session": "session_1752682823808_oyaz2rzjf"}
+2025-07-16 16:20:33 [INFO] APP_STARTUP: Application initializing - {"user": "anonymous", "session": "session_1752682823808_oyaz2rzjf"}
+2025-07-16 16:20:33 [INFO] APP_STARTUP: Attempting to connect to backend - {"backendUrl": "http://localhost:8000", "user": "anonymous", "session": "session_1752682823808_oyaz2rzjf"}
+2025-07-16 16:20:33 [SUCCESS] APP_STARTUP: Application configuration loaded from backend successfully - {"user": "anonymous", "session": "session_1752682823808_oyaz2rzjf"}
+2025-07-16 16:20:33 [SUCCESS] APP_STARTUP: Application configuration loaded from backend successfully - {"user": "anonymous", "session": "session_1752682823808_oyaz2rzjf"}
+2025-07-16 16:20:38 [INFO] CONNECTION_TEST: Testing backend connection - {"url": "http://localhost:8000", "user": "anonymous", "session": "session_1752682823808_oyaz2rzjf"}
+2025-07-16 16:20:38 [SUCCESS] CONNECTION_TEST: Backend connection successful - {"url": "http://localhost:8000", "status": "healthy", "user": "anonymous", "session": "session_1752682823808_oyaz2rzjf"}
