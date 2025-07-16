@@ -42,10 +42,9 @@ export default function PredictionPage() {
   }
   
   // Get values directly from config
-  // const predictionUrl = config?.app?.prediction_url || "";
   const accountCode = config?.app?.account_code || "";
   
-  console.log("PredictionPage - Config values:", { predictionUrl, accountCode, config });
+  console.log("PredictionPage - Config values:", { accountCode, config });
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
@@ -139,9 +138,9 @@ export default function PredictionPage() {
   };
 
   useEffect(() => {
-    console.log("PredictionPage useEffect triggered with:", { predictionUrl, accountCode });
+    console.log("PredictionPage useEffect triggered with:", { accountCode });
     fetchItems();
-  }, [predictionUrl, accountCode]);
+  }, [accountCode]);
 
   useEffect(() => {
     const term = searchTerm.toLowerCase();
