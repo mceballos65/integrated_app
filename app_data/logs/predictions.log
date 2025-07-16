@@ -1420,3 +1420,42 @@
 2025-07-16 07:20:53,363 - [list_entries] Listing all entries | IP: 127.0.0.1
 2025-07-16 07:20:53,364 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
 2025-07-16 07:20:53,380 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:17:30,887 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:17:30,895 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:17:30,901 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:17:30,926 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:17:31,988 - [enable_matcher_for_account] Matcher '7f3e85df-698d-4bb8-9318-4b42817ae536' enabled for account 'ACM'. | IP: 127.0.0.1
+2025-07-16 08:17:31,994 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:17:32,574 - [disable_matcher_for_account] Matcher '7f3e85df-698d-4bb8-9318-4b42817ae536' disabled for account 'ACM'. | IP: 127.0.0.1
+2025-07-16 08:17:32,578 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:17:45,986 - [ACM] 'device not responding to ping' => Match 'Device Availability Check: ICMP Ping' | Score: 0.54 | Threshold Met: True | Component Allowed: True | Account Enabled: True | Execute Approved: True | IP: 127.0.0.1
+2025-07-16 08:17:51,974 - [ACM] 'device not responding to ping' => Match 'Device Availability Check: ICMP Ping' | Score: 0.54 | Threshold Met: True | Component Allowed: True | Account Enabled: True | Execute Approved: True | IP: 127.0.0.1
+2025-07-16 08:17:54,625 - [ACM] 'device not responding to ping' => Match 'Device Availability Check: ICMP Ping' | Score: 0.54 | Threshold Met: True | Component Allowed: True | Account Enabled: True | Execute Approved: True | IP: 127.0.0.1
+2025-07-16 08:17:59,301 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:17:59,308 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:17:59,310 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:17:59,337 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:27:56,713 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:27:56,720 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:27:57,219 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:27:57,224 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:28:18,868 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:28:18,881 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:28:18,889 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:28:18,922 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:31:33,708 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:31:33,720 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:31:33,721 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:31:33,734 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:31:42,947 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:31:42,954 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:31:43,025 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:31:43,030 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:32:17,043 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:32:17,054 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:32:17,056 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:32:17,068 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:32:59,289 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:32:59,305 - [list_entries] Listing all entries | IP: 127.0.0.1
+2025-07-16 08:32:59,306 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
+2025-07-16 08:32:59,322 - [list_disabled_matchers] Listing disabled matchers for account: ACM | IP: 127.0.0.1
