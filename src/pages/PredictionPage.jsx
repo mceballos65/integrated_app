@@ -42,7 +42,7 @@ export default function PredictionPage() {
   }
   
   // Get values directly from config
-  const predictionUrl = config?.app?.prediction_url || "";
+  // const predictionUrl = config?.app?.prediction_url || "";
   const accountCode = config?.app?.account_code || "";
   
   console.log("PredictionPage - Config values:", { predictionUrl, accountCode, config });
@@ -65,11 +65,10 @@ export default function PredictionPage() {
   };
 
   const fetchMatcherStatus = async () => {
-    if (!predictionUrl || !accountCode) return;
-    
+    if (!accountCode) return;
     setLoadingMatcherStatus(true);
     try {
-      const response = await fetch(`${predictionUrl}/accounts/${accountCode}`, {
+      const response = await fetch(`/api/accounts/${accountCode}`, {
         method: 'GET',
         headers: { "Content-Type": "application/json" }
       });
@@ -90,13 +89,11 @@ export default function PredictionPage() {
   };
 
   const toggleMatcherStatus = async (matcherId, currentlyDisabled) => {
-    if (!predictionUrl || !accountCode) return;
-
+    if (!accountCode) return;
     const endpoint = currentlyDisabled ? 'enable' : 'disable';
     const action = currentlyDisabled ? 'enabled' : 'disabled';
-    
     try {
-      const response = await fetch(`${predictionUrl}/accounts/${accountCode}/${endpoint}`, {
+      const response = await fetch(`/api/accounts/${accountCode}/${endpoint}`, {
         method: 'POST',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ matcher_id: matcherId })
@@ -116,15 +113,9 @@ export default function PredictionPage() {
   };
 
   const fetchItems = async () => {
-    console.log("fetchItems called with predictionUrl:", predictionUrl);
-    if (!predictionUrl) {
-      console.log("No prediction URL configured, skipping fetch");
-      return;
-    }
-    
+    if (!accountCode) return;
     try {
-      console.log("Fetching items from:", `${predictionUrl}/list`);
-      const response = await fetch(`${predictionUrl}/list`, {
+      const response = await fetch(`/api/list`, {
         headers: { "Content-Type": "application/json" }
       });
       
@@ -189,7 +180,7 @@ export default function PredictionPage() {
   };
 
   const handleUpdate = () => {
-    fetch(`${predictionUrl}/modify`, {
+    fetch(`/api/modify`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(editedItem)
@@ -207,7 +198,7 @@ export default function PredictionPage() {
   };
 
   const handleAddNew = () => {
-    fetch(`${predictionUrl}/add`, {
+    fetch(`/api/add`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newItem)
@@ -224,7 +215,7 @@ export default function PredictionPage() {
 
   const handleDelete = (id) => {
     if (!window.confirm("Are you sure you want to delete this item?")) return;
-    fetch(`${predictionUrl}/delete`, {
+    fetch(`/api/delete`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id })
