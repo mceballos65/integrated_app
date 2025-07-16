@@ -141,10 +141,8 @@ const useComponents = (includeDisabled = false) => {
   };
 
   useEffect(() => {
-    const backendUrl = getBackendUrlForComponents();
-    if (backendUrl) {
-      fetchComponents();
-    }
+    // Always fetch components since we're using relative URLs with proxy
+    fetchComponents();
   }, []);
 
   return {

@@ -13,7 +13,7 @@ const DebugPage = () => {
   const [status, setStatus] = useState('ready');
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const [customUrl, setCustomUrl] = useState('http://localhost:8000');
+  const [customUrl, setCustomUrl] = useState('http://localhost:5173');
   const [isPageLoaded, setIsPageLoaded] = useState(false);
   const [adminCreationEnabled, setAdminCreationEnabled] = useState(() => {
     // Initialize from localStorage, default to true if not set
@@ -283,19 +283,30 @@ const DebugPage = () => {
           <h2 className="text-xl font-semibold mb-4">🚀 Quick Actions</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <button
-              onClick={() => setCustomUrl('http://localhost:8000')}
-              className="p-3 text-left border border-gray-200 rounded hover:bg-gray-50"
+              onClick={() => setCustomUrl('http://localhost:5173')}
+              className="p-3 text-left border border-gray-200 rounded hover:bg-gray-50 border-blue-300 bg-blue-50"
             >
-              <div className="font-medium">Local Backend</div>
-              <div className="text-sm text-gray-500">http://localhost:8000</div>
+              <div className="font-medium">Frontend (Recommended)</div>
+              <div className="text-sm text-gray-500">http://localhost:5173</div>
+              <div className="text-xs text-blue-600">✅ Uses Vite proxy</div>
             </button>
             
             <button
-              onClick={() => setCustomUrl('http://127.0.0.1:8000')}
+              onClick={() => setCustomUrl('http://localhost:8000')}
               className="p-3 text-left border border-gray-200 rounded hover:bg-gray-50"
             >
-              <div className="font-medium">Alternative Local</div>
-              <div className="text-sm text-gray-500">http://127.0.0.1:8000</div>
+              <div className="font-medium">Direct Backend</div>
+              <div className="text-sm text-gray-500">http://localhost:8000</div>
+              <div className="text-xs text-orange-600">⚠️ Direct access</div>
+            </button>
+            
+            <button
+              onClick={() => setCustomUrl('http://127.0.0.1:5173')}
+              className="p-3 text-left border border-gray-200 rounded hover:bg-gray-50"
+            >
+              <div className="font-medium">Frontend Alternative</div>
+              <div className="text-sm text-gray-500">http://127.0.0.1:5173</div>
+              <div className="text-xs text-blue-600">✅ Uses Vite proxy</div>
             </button>
             
             <button
@@ -408,9 +419,20 @@ const DebugPage = () => {
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">🌐 API Configuration</h2>
           
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+            <div className="text-sm text-blue-800">
+              <strong>ℹ️ How it works now:</strong>
+              <ul className="mt-2 ml-4 list-disc">
+                <li><strong>Frontend (port 5173):</strong> All API calls go through Vite proxy → Backend</li>
+                <li><strong>Direct Backend (port 8000):</strong> Direct connection (debug only)</li>
+                <li><strong>Production:</strong> Only frontend port exposed, backend internal</li>
+              </ul>
+            </div>
+          </div>
+          
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Backend API URL:
+              Test URL:
             </label>
             <div className="flex gap-2">
               <input
@@ -418,7 +440,7 @@ const DebugPage = () => {
                 value={customUrl}
                 onChange={(e) => setCustomUrl(e.target.value)}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="http://localhost:8000"
+                placeholder="http://localhost:5173"
               />
               <button
                 onClick={updateApiUrl}
@@ -428,7 +450,7 @@ const DebugPage = () => {
               </button>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Common URLs: http://localhost:8000, http://127.0.0.1:8000
+              Recommended: http://localhost:5173 (proxy), Direct: http://localhost:8000
             </p>
           </div>
 

@@ -291,3 +291,16 @@ Request URL: http://localhost:5173/health
 - ✅ Todas las llamadas pasan por el proxy
 
 ---
+
+## 📂 Notas Adicionales
+
+#### Página de Debug (DebugPage.jsx)
+**Comportamiento especial**: La página de debug puede conectarse directamente al backend para propósitos de diagnóstico.
+
+**URLs recomendadas en Debug Page:**
+- `http://localhost:5173` ✅ - **Recomendado**: Usa el proxy de Vite (comportamiento normal)
+- `http://localhost:8000` ⚠️ - **Solo debug**: Conexión directa al backend (para diagnóstico)
+
+**¿Por qué funciona el test directo?** El DebugPage temporalmente cambia la URL base del servicio de usuario para hacer tests de conectividad, luego la revierte. Esto es útil para verificar que el backend esté funcionando independientemente del proxy.
+
+---
