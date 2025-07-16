@@ -14,10 +14,13 @@
     "admin_password_hash": ""
   },
   "github": {
+    "repo_url": "",
+    "branch": "main",
+    "hasToken": false,
     "githubUsername": "mceballos65",
-    "repositoryUrl": "https://github.com/mceballos65/integrated_app.git",
-    "branchName": "main-4",
+    "branchName": "main",
     "localPath": "./app_data/config",
+    "repositoryUrl": "https://github.com/mceballos65/integrated_app.git",
     "token": ""
   },
   "edited_configs": {
@@ -25,8 +28,8 @@
     "app": true,
     "security": true,
     "github": true,
-    "logging": true,
-    "user_management": false,
+    "logging": false,
+    "user_management": true,
     "users": true
   }
 }

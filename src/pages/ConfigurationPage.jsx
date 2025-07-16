@@ -138,6 +138,11 @@ function GitHubConfigPanel({
       return;
     }
 
+    if (!localRepositoryUrl.trim()) {
+      showStatusMessage('Repository URL cannot be empty', true);
+      return;
+    }
+
     setSavingAdvancedSettings(true);
     try {
       const response = await fetch(`${getBackendUrl()}/api/config/update`, {
@@ -146,7 +151,8 @@ function GitHubConfigPanel({
         body: JSON.stringify({
           github: {
             branchName: localBranchName.trim(),
-            localPath: localPath.trim()
+            localPath: localPath.trim(),
+            repositoryUrl: localRepositoryUrl.trim()
           }
         })
       });
@@ -156,7 +162,8 @@ function GitHubConfigPanel({
         markConfigAsEdited("github");
         appLogger.success('GITHUB_CONFIG', 'Advanced GitHub settings saved', { 
           branchName: localBranchName.trim(), 
-          localPath: localPath.trim() 
+          localPath: localPath.trim(),
+          repositoryUrl: localRepositoryUrl.trim()
         });
       } else {
         const errorData = await response.json();
@@ -249,24 +256,6 @@ function GitHubConfigPanel({
           </p>
         </div>
 
-        {/* Repository URL */}
-        <div className="mb-4">
-          <label className="block font-semibold mb-1">
-            Repository URL
-            <span className="text-red-500 ml-1">*</span>
-          </label>
-          <input
-            type="text"
-            value={localRepositoryUrl}
-            onChange={(e) => setLocalRepositoryUrl(e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-2"
-            placeholder="https://github.com/username/repository.git"
-          />
-          <p className="text-sm text-gray-600 mt-1">
-            The HTTPS URL of your GitHub repository
-          </p>
-        </div>
-
         {/* Save Credentials Button */}
         <button
           onClick={handleSaveCredentials}
@@ -291,6 +280,24 @@ function GitHubConfigPanel({
         <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">
           ⚙️ Advanced Configuration
         </h3>
+        
+        {/* Repository URL */}
+        <div className="mb-4">
+          <label className="block font-semibold mb-1">
+            Repository URL
+            <span className="text-red-500 ml-1">*</span>
+          </label>
+          <input
+            type="text"
+            value={localRepositoryUrl}
+            onChange={(e) => setLocalRepositoryUrl(e.target.value)}
+            className="w-full border border-gray-300 rounded px-3 py-2"
+            placeholder="https://github.com/username/repository.git"
+          />
+          <p className="text-sm text-gray-600 mt-1">
+            The HTTPS URL of your GitHub repository
+          </p>
+        </div>
         
         {/* Branch Name */}
         <div className="mb-4">
@@ -325,7 +332,7 @@ function GitHubConfigPanel({
         {/* Save Advanced Settings Button */}
         <button
           onClick={handleSaveAdvancedSettings}
-          disabled={savingAdvancedSettings || !localBranchName.trim() || !localPath.trim()}
+          disabled={savingAdvancedSettings || !localBranchName.trim() || !localPath.trim() || !localRepositoryUrl.trim()}
           className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
         >
           {savingAdvancedSettings ? (
@@ -514,8 +521,14 @@ export default function ConfigurationPage() {
 
   // Función personalizada para cambiar el panel activo y guardarlo en localStorage
   const changeActivePanel = async (panel) => {
+    // Refresh users list before validation to ensure we have the latest data
+    await refreshUsers();
+    
+    // Recalculate hasAlternativeUsers with fresh data
+    const currentHasAlternativeUsers = users.filter(user => user.username !== 'admin' && user.is_active).length > 0;
+    
     // Only apply user validation if trying to leave "users" panel AND there are still security issues
-    if (activePanel === "users" && panel !== "users" && !hasAlternativeUsers && !adminUserDisabled) {
+    if (activePanel === "users" && panel !== "users" && !currentHasAlternativeUsers && !adminUserDisabled) {
       showStatusMessage('Please create a new user before leaving this section', true);
       return;
     }
@@ -1153,6 +1166,7 @@ export default function ConfigurationPage() {
             markConfigAsEdited={markConfigAsEdited}
             reloadConfig={reloadConfigAfterChange}
             updateConfig={updateConfig}
+            refreshUsers={refreshUsers}
           />}
 
           {activePanel === "security" && <AdminSecurityPanel 
@@ -1392,11 +1406,16 @@ function AppConfigPanel({ localPredictionUrl, setLocalPredictionUrl, localAccoun
   );
 }
 
-function UserManagementPanel({ showStatusMessage, markConfigAsEdited, reloadConfig, updateConfig }) {
+function UserManagementPanel({ showStatusMessage, markConfigAsEdited, reloadConfig, updateConfig, refreshUsers }) {
   // Mark as edited when user interacts with this panel
-  const handleUserAction = (action) => {
+  const handleUserAction = async (action) => {
     markConfigAsEdited("users");
-    return action();
+    const result = await action();
+    // Refresh the main users list to ensure validation works correctly
+    if (refreshUsers) {
+      await refreshUsers();
+    }
+    return result;
   };
 
   return (

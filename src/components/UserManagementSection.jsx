@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth, useUserManagement } from '../hooks/useAuth.jsx';
 import useConfigStore from '../store';
 
-const UserManagementSection = () => {
+const UserManagementSection = ({ onUserAction }) => {
   const { user: currentUser } = useAuth();
   const {
     users,
@@ -67,7 +67,16 @@ const UserManagementSection = () => {
     }
 
     try {
-      await createUser(newUser.username, newUser.password, newUser.isActive);
+      const createUserAction = async () => {
+        return await createUser(newUser.username, newUser.password, newUser.isActive);
+      };
+      
+      if (onUserAction) {
+        await onUserAction(createUserAction);
+      } else {
+        await createUserAction();
+      }
+      
       showMessage(`User "${newUser.username}" created successfully`, 'success');
       setNewUser({ username: '', password: '', confirmPassword: '', isActive: true });
       setShowCreateForm(false);
@@ -102,7 +111,16 @@ const UserManagementSection = () => {
 
   const handleToggleStatus = async (username) => {
     try {
-      await toggleUserStatus(username);
+      const toggleAction = async () => {
+        return await toggleUserStatus(username);
+      };
+      
+      if (onUserAction) {
+        await onUserAction(toggleAction);
+      } else {
+        await toggleAction();
+      }
+      
       const user = users.find(u => u.username === username);
       const newStatus = user?.is_active ? 'disabled' : 'enabled';
       showMessage(`User "${username}" ${newStatus} successfully`, 'success');
@@ -117,7 +135,16 @@ const UserManagementSection = () => {
     }
 
     try {
-      await deleteUser(username);
+      const deleteAction = async () => {
+        return await deleteUser(username);
+      };
+      
+      if (onUserAction) {
+        await onUserAction(deleteAction);
+      } else {
+        await deleteAction();
+      }
+      
       showMessage(`User "${username}" deleted successfully`, 'success');
     } catch (err) {
       showMessage(err.message || 'Failed to delete user', 'error');
