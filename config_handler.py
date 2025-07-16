@@ -49,7 +49,13 @@ def ensure_directories():
 
 def get_config_path(filename: str) -> str:
     """Obtiene la ruta absoluta al archivo de configuración"""
-    return os.path.abspath(filename)
+    # Si ya es una ruta absoluta, úsala tal como está
+    if os.path.isabs(filename):
+        return filename
+    
+    # Si es una ruta relativa, hacer que sea relativa al directorio del script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(script_dir, filename)
 
 def config_exists(filename: str) -> bool:
     """Verifica si el archivo de configuración existe"""
