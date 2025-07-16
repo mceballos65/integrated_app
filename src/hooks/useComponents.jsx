@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import useConfigStore from '../store';
-import { getBackendUrl } from '../configStorage';
 
 const useComponents = (includeDisabled = false) => {
   const { config } = useConfigStore();
@@ -8,24 +7,12 @@ const useComponents = (includeDisabled = false) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Get backend URL from config - use main backend server
-  const getBackendUrlForComponents = () => {
-    return getBackendUrl();
-  };
-
   const fetchComponents = async () => {
     setLoading(true);
     setError(null);
     
-    const backendUrl = getBackendUrlForComponents();
-    if (!backendUrl) {
-      setError('Backend URL not configured');
-      setLoading(false);
-      return;
-    }
-    
     try {
-      const response = await fetch(`${backendUrl}/api/components`);
+      const response = await fetch('/api/components');
       if (!response.ok) {
         throw new Error(`Failed to fetch components: ${response.status}`);
       }
@@ -52,14 +39,8 @@ const useComponents = (includeDisabled = false) => {
   };
 
   const addComponent = async (newComponent) => {
-    const backendUrl = getBackendUrlForComponents();
-    if (!backendUrl) {
-      setError('Backend URL not configured');
-      return null;
-    }
-
     try {
-      const response = await fetch(`${backendUrl}/api/components`, {
+      const response = await fetch('/api/components', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newComponent)
@@ -83,14 +64,8 @@ const useComponents = (includeDisabled = false) => {
   };
 
   const updateComponent = async (componentId, updates) => {
-    const backendUrl = getBackendUrlForComponents();
-    if (!backendUrl) {
-      setError('Backend URL not configured');
-      return false;
-    }
-
     try {
-      const response = await fetch(`${backendUrl}/api/components/${componentId}`, {
+      const response = await fetch(`/api/components/${componentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
@@ -112,14 +87,8 @@ const useComponents = (includeDisabled = false) => {
   };
 
   const removeComponent = async (componentId) => {
-    const backendUrl = getBackendUrlForComponents();
-    if (!backendUrl) {
-      setError('Backend URL not configured');
-      return false;
-    }
-
     try {
-      const response = await fetch(`${backendUrl}/api/components/${componentId}`, {
+      const response = await fetch(`/api/components/${componentId}`, {
         method: 'DELETE'
       });
 
@@ -139,14 +108,8 @@ const useComponents = (includeDisabled = false) => {
   };
 
   const toggleComponent = async (componentId) => {
-    const backendUrl = getBackendUrlForComponents();
-    if (!backendUrl) {
-      setError('Backend URL not configured');
-      return false;
-    }
-
     try {
-      const response = await fetch(`${backendUrl}/api/components/${componentId}/toggle`, {
+      const response = await fetch(`/api/components/${componentId}/toggle`, {
         method: 'POST'
       });
 

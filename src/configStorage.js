@@ -111,7 +111,7 @@ function setFallbackConfig(config) {
 export async function checkConfigExists() {
   try {
     // Verificar específicamente si el archivo de configuración existe en el backend
-    const response = await fetch(`${BACKEND_URL}${CONFIG_API_PATH}/exists?file=${CONFIG_FILE_NAME}`);
+    const response = await fetch(`${getBackendUrl()}${CONFIG_API_PATH}/exists?file=${CONFIG_FILE_NAME}`);
     const data = await response.json();
     
     // El backend debe responder con un campo "exists" que indica si el archivo existe
@@ -136,11 +136,11 @@ export async function checkConfigExists() {
 export async function loadConfig() {
   try {
     // Cargar la configuración desde el archivo específico en el backend
-    const response = await fetch(`${BACKEND_URL}${CONFIG_API_PATH}/load?file=${CONFIG_FILE_NAME}`);
+    const response = await fetch(`${getBackendUrl()}${CONFIG_API_PATH}/load?file=${CONFIG_FILE_NAME}`);
     
     if (!response.ok) {
       // Si el archivo no existe, intentar la API antigua como compatibilidad
-      const legacyResponse = await fetch(`${BACKEND_URL}/config`);
+      const legacyResponse = await fetch(`${getBackendUrl()}/config`);
       if (!legacyResponse.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -170,7 +170,7 @@ export async function loadConfig() {
 export async function saveConfig(config) {
   try {
     // Guardar la configuración en el archivo específico del backend
-    const response = await fetch(`${BACKEND_URL}${CONFIG_API_PATH}/save?file=${CONFIG_FILE_NAME}`, {
+    const response = await fetch(`${getBackendUrl()}${CONFIG_API_PATH}/save?file=${CONFIG_FILE_NAME}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -180,7 +180,7 @@ export async function saveConfig(config) {
     
     if (!response.ok) {
       // Compatibilidad con API antigua
-      const legacyResponse = await fetch(`${BACKEND_URL}/config`, {
+      const legacyResponse = await fetch(`${getBackendUrl()}/config`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -217,7 +217,7 @@ export async function saveConfig(config) {
 export async function updateConfig(configUpdate) {
   try {
     // Actualizar la configuración en el archivo específico del backend
-    const response = await fetch(`${BACKEND_URL}${CONFIG_API_PATH}/update?file=${CONFIG_FILE_NAME}`, {
+    const response = await fetch(`${getBackendUrl()}${CONFIG_API_PATH}/update?file=${CONFIG_FILE_NAME}`, {
       method: "PATCH",  // PATCH es más apropiado para actualizaciones parciales
       headers: {
         "Content-Type": "application/json",
@@ -227,7 +227,7 @@ export async function updateConfig(configUpdate) {
     
     if (!response.ok) {
       // Compatibilidad con API antigua
-      const legacyResponse = await fetch(`${BACKEND_URL}/config`, {
+      const legacyResponse = await fetch(`${getBackendUrl()}/config`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -272,7 +272,7 @@ export async function updateConfig(configUpdate) {
 export async function replaceConfig(config) {
   try {
     // Reemplazar toda la configuración en el archivo específico del backend
-    const response = await fetch(`${BACKEND_URL}${CONFIG_API_PATH}/replace?file=${CONFIG_FILE_NAME}`, {
+    const response = await fetch(`${getBackendUrl()}${CONFIG_API_PATH}/replace?file=${CONFIG_FILE_NAME}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -282,7 +282,7 @@ export async function replaceConfig(config) {
     
     if (!response.ok) {
       // Compatibilidad con API antigua
-      const legacyResponse = await fetch(`${BACKEND_URL}/config`, {
+      const legacyResponse = await fetch(`${getBackendUrl()}/config`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -314,7 +314,7 @@ export async function replaceConfig(config) {
 export async function saveGithubToken(token) {
   try {
     appLogger.info('GITHUB_TOKEN', 'Saving GitHub token securely');
-    const response = await fetch(`${BACKEND_URL}/config/github/token`, {
+    const response = await fetch(`${getBackendUrl()}/config/github/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -338,7 +338,7 @@ export async function saveGithubToken(token) {
 
 export async function checkGithubTokenExists() {
   try {
-    const response = await fetch(`${BACKEND_URL}/config/github/token/exists`, {
+    const response = await fetch(`${getBackendUrl()}/config/github/token/exists`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -361,7 +361,7 @@ export async function checkGithubTokenExists() {
 export async function deleteGithubToken() {
   try {
     appLogger.info('GITHUB_TOKEN', 'Deleting GitHub token');
-    const response = await fetch(`${BACKEND_URL}/config/github/token`, {
+    const response = await fetch(`${getBackendUrl()}/config/github/token`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -385,7 +385,7 @@ export async function deleteGithubToken() {
 export async function saveGithubConfig(config) {
   try {
     appLogger.info('GITHUB_CONFIG', 'Saving GitHub configuration', { config });
-    const response = await fetch(`${BACKEND_URL}${CONFIG_API_PATH}`, {
+    const response = await fetch(`${getBackendUrl()}${CONFIG_API_PATH}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',

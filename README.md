@@ -241,15 +241,53 @@ server: {
 **Problema**: El código JavaScript usaba URLs absolutas (http://localhost:8000) que no pasaban por el proxy
 **Solución**: Modificar todas las llamadas fetch para usar URLs relativas
 **Archivos modificados:**
-- `configStorage.js`: Nueva función `getBackendUrlForConfig()` para configuración
+- `configStorage.js`: Nueva función `getBackendUrlForConfig()` para configuración, todas las funciones ahora usan `getBackendUrl()`
 - `ConfigurationPage.jsx`: Cambio de URLs absolutas a relativas
+- `useComponents.jsx`: Todas las funciones (`fetchComponents`, `addComponent`, `updateComponent`, `removeComponent`, `toggleComponent`) ahora usan rutas relativas
 - `vite.config.js`: Agregado proxy para `/logs`
 
 **Ejemplo de cambio:**
 ```javascript
 // Antes:
 fetch(`${getBackendUrl()}/users/login`, ...)
+fetch(`${backendUrl}/api/components`, ...)
 
 // Después:
 fetch('/users/login', ...) // Pasa por el proxy de Vite
+fetch('/api/components', ...) // Pasa por el proxy de Vite
 ```
+
+**Estado actual:** ✅ Todas las llamadas fetch ahora usan rutas relativas y pasan por el proxy de Vite
+
+#### Verificación Final del Proxy
+**Cómo verificar que el proxy funciona correctamente:**
+
+1. **Abrir las herramientas de desarrollador del navegador (F12)**
+2. **Ir a la pestaña Network/Red**
+3. **Recargar la página de la aplicación**
+4. **Verificar que todas las llamadas van a `localhost:5173` (no a `localhost:8000`)**
+
+**Ejemplo de llamadas correctas:**
+```
+Request URL: http://localhost:5173/api/config/exists?file=...
+Request URL: http://localhost:5173/users/login
+Request URL: http://localhost:5173/api/components
+Request URL: http://localhost:5173/health
+```
+
+**Si ves llamadas a `localhost:8000` directamente desde el navegador, significa que hay URLs absolutas que aún necesitan ser corregidas.**
+
+#### Flujo de Red Actual (Correcto)
+```
+[Navegador] --> [Frontend :5173] --> [Proxy Vite] --> [Backend :8000]
+```
+
+**Beneficios conseguidos:**
+- ✅ Solo puerto 5173 expuesto públicamente
+- ✅ Backend 8000 solo accesible internamente 
+- ✅ Sin problemas de CORS
+- ✅ Mejor seguridad
+- ✅ Single point of entry
+- ✅ Todas las llamadas pasan por el proxy
+
+---
