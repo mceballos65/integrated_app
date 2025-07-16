@@ -40,6 +40,17 @@ function initializeBackendUrl() {
 initializeBackendUrl();
 
 export function getBackendUrl() {
+  // If we're running in development with Vite proxy, use relative URLs
+  if (import.meta.env.DEV) {
+    return ''; // Empty string means relative URLs
+  }
+  // In production, use the configured backend URL
+  return BACKEND_URL;
+}
+
+export function getBackendUrlForConfig() {
+  // This function is specifically for configuration purposes
+  // Always returns the actual backend URL
   return BACKEND_URL;
 }
 

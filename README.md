@@ -236,3 +236,20 @@ server: {
 ```
 [Cliente] --> [Frontend :5173] --> [Backend :8000 (interno)]
 ```
+
+#### Problema 4: URLs hardcodeadas en el frontend
+**Problema**: El código JavaScript usaba URLs absolutas (http://localhost:8000) que no pasaban por el proxy
+**Solución**: Modificar todas las llamadas fetch para usar URLs relativas
+**Archivos modificados:**
+- `configStorage.js`: Nueva función `getBackendUrlForConfig()` para configuración
+- `ConfigurationPage.jsx`: Cambio de URLs absolutas a relativas
+- `vite.config.js`: Agregado proxy para `/logs`
+
+**Ejemplo de cambio:**
+```javascript
+// Antes:
+fetch(`${getBackendUrl()}/users/login`, ...)
+
+// Después:
+fetch('/users/login', ...) // Pasa por el proxy de Vite
+```

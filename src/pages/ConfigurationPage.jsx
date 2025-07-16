@@ -4,7 +4,7 @@ import useConfigStore from "../store";
 import { useAuth, useUserManagement } from "../hooks/useAuth.jsx";
 import useComponents from "../hooks/useComponents.jsx";
 import userApiService from "../services/userApi";
-import { getBackendUrl, setBackendUrl, markSetupCompleted } from "../configStorage";
+import { getBackendUrl, getBackendUrlForConfig, setBackendUrl, markSetupCompleted } from "../configStorage";
 import appLogger from "../services/appLogger";
 import UserManagementSection from "../components/UserManagementSection.jsx";
 
@@ -44,7 +44,7 @@ function GitHubConfigPanel({
   const checkGitHubCredentials = async () => {
     setCheckingCredentials(true);
     try {
-      const response = await fetch(`${getBackendUrl()}/config/github/token/exists`, {
+      const response = await fetch('/config/github/token/exists', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -71,7 +71,7 @@ function GitHubConfigPanel({
 
     setSavingCredentials(true);
     try {
-      const response = await fetch(`${getBackendUrl()}/config/github/token`, {
+      const response = await fetch('/config/github/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -105,7 +105,7 @@ function GitHubConfigPanel({
     }
 
     try {
-      const response = await fetch(`${getBackendUrl()}/config/github/token`, {
+      const response = await fetch('/config/github/token', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -145,7 +145,7 @@ function GitHubConfigPanel({
 
     setSavingAdvancedSettings(true);
     try {
-      const response = await fetch(`${getBackendUrl()}/api/config/update`, {
+      const response = await fetch('/api/config/update', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -676,7 +676,7 @@ export default function ConfigurationPage() {
       }
     }
     // Initialize backend URL
-    setLocalBackendUrl(getBackendUrl());
+    setLocalBackendUrl(getBackendUrlForConfig());
   }, [configLoaded, config]); // Simplified dependencies
 
   // Check admin user status and sync with backend config
@@ -816,7 +816,7 @@ export default function ConfigurationPage() {
     }
     
     try {
-      const res = await fetch(`${getBackendUrl()}${endpoint}`, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" }
       });
@@ -874,7 +874,7 @@ export default function ConfigurationPage() {
     
     try {
       // Call backend to create the branch
-      const res = await fetch(`${getBackendUrl()}/git/create-branch`, {
+      const res = await fetch('/git/create-branch', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ branchName })
@@ -1144,7 +1144,7 @@ export default function ConfigurationPage() {
             setLocalBackendUrl={setLocalBackendUrl}
             handleBackendUrlSave={handleBackendUrlSave}
             testBackendConnection={testBackendConnection}
-            getBackendUrl={getBackendUrl}
+            getBackendUrl={getBackendUrlForConfig}
             showReloginButton={showReloginButton}
             handleRelogin={handleRelogin}
           />}
@@ -2157,7 +2157,7 @@ function LogConfigPanel({ updateConfig, markConfigAsEdited, showStatusMessage })
   const fetchCleanupStatus = async () => {
     setIsLoadingStatus(true);
     try {
-      const response = await fetch(`${getBackendUrl()}/api/logs/cleanup/status`);
+      const response = await fetch('/api/logs/cleanup/status');
       if (response.ok) {
         const status = await response.json();
         setCleanupStatus(status);
@@ -2175,7 +2175,7 @@ function LogConfigPanel({ updateConfig, markConfigAsEdited, showStatusMessage })
   const handleManualCleanup = async () => {
     setIsCleaningUp(true);
     try {
-      const response = await fetch(`${getBackendUrl()}/api/logs/cleanup`, {
+      const response = await fetch('/api/logs/cleanup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -2207,7 +2207,7 @@ function LogConfigPanel({ updateConfig, markConfigAsEdited, showStatusMessage })
         return;
       }
 
-      const response = await fetch(`${getBackendUrl()}/api/config/logs`, {
+      const response = await fetch('/api/config/logs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
