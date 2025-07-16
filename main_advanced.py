@@ -418,7 +418,13 @@ def list_entries(http_request: Request):
             request=http_request
         )
     
+
     return data
+
+# Endpoint: List phrases (API version para frontend proxy)
+@app.get("/api/list")
+def api_list_entries(http_request: Request):
+    return list_entries(http_request)
 
 # Endpoint: Health check
 @app.get("/")
