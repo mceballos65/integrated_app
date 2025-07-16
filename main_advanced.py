@@ -170,7 +170,7 @@ def get_default_config():
     """Returns the default configuration structure"""
     return {
         "app": {
-            "prediction_url": "",
+            "prediction_url": "/api",
             "account_code": ""
         },
         "logging": {

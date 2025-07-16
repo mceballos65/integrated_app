@@ -13,7 +13,7 @@ DEFAULT_CONFIG_FILENAME = "app_data/config/app_config.json"
 # Configuración por defecto
 DEFAULT_CONFIG = {
     "app": {
-        "prediction_url": "http://localhost:8000",
+        "prediction_url": "/api",
         "account_code": ""
     },
     "logging": {
