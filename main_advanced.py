@@ -243,7 +243,7 @@ def get_github_config():
     
     return github_config
 
-@app.post("/predict")
+@app.post("/api/predict")
 def predict(request: PredictRequest, http_request: Request):
     message = normalize_text(request.abstract)
     raw_component = request.component or ""
@@ -327,7 +327,7 @@ def predict(request: PredictRequest, http_request: Request):
 
 
 # Endpoint: Add phrase
-@app.post("/add")
+@app.post("/api/add")
 def add_entry(request: AddRequest, http_request: Request):
     new_entry = {
         "id": str(uuid.uuid4()),
@@ -352,7 +352,7 @@ def add_entry(request: AddRequest, http_request: Request):
     return {"message": "Entry added successfully", "id": new_entry["id"]}
 
 # Endpoint: Modify phrase
-@app.put("/modify")
+@app.put("/api/modify")
 def modify_entry(request: ModifyRequest, http_request: Request):
     for entry in data:
         if entry["id"] == request.id:
@@ -387,7 +387,7 @@ def modify_entry(request: ModifyRequest, http_request: Request):
 
     raise HTTPException(status_code=404, detail="Entry not found")
 # Endpoint: Delete Phrase
-@app.delete("/delete")
+@app.delete("/api/delete")
 def delete_entry(request: DeleteRequest, http_request: Request):
     global data
     original_len = len(data)
@@ -408,7 +408,7 @@ def delete_entry(request: DeleteRequest, http_request: Request):
     return {"message": "Entry deleted successfully"}
 
 # Endpoint: List phrases
-@app.get("/list")
+@app.get("/api/list")
 def list_entries(http_request: Request):
     # logging section
     if ENABLE_LOGGING:
@@ -420,11 +420,6 @@ def list_entries(http_request: Request):
     
 
     return data
-
-# Endpoint: List phrases (API version para frontend proxy)
-@app.get("/api/list")
-def api_list_entries(http_request: Request):
-    return list_entries(http_request)
 
 # Endpoint: Health check
 @app.get("/")
@@ -440,7 +435,7 @@ def health_check(http_request: Request):
     return {"status": "ok"}
 
 # Endpoint: List accounts with disabled playbooks
-@app.get("/accounts/{account}")
+@app.get("/api/accounts/{account}")
 def list_disabled_matchers(account: str, http_request: Request):
     global disabled_by_matcher
     matchers = [matcher for matcher, accounts in disabled_by_matcher.items() if account in accounts]
@@ -457,7 +452,7 @@ def list_disabled_matchers(account: str, http_request: Request):
 
 
 # Endpoint: Disable matcher for account
-@app.post("/accounts/{account}/disable")
+@app.post("/api/accounts/{account}/disable")
 def disable_matcher_for_account(account: str, request: MatcherActionRequest, http_request: Request):
     global disabled_by_matcher
     matcher_id = request.matcher_id
@@ -479,7 +474,7 @@ def disable_matcher_for_account(account: str, request: MatcherActionRequest, htt
     return {"message": f"Matcher '{matcher_id}' disabled for account '{account}'."}
 
 # Endpoint: Enable matcher for account
-@app.post("/accounts/{account}/enable")
+@app.post("/api/accounts/{account}/enable")
 def enable_matcher_for_account(account: str, request: MatcherActionRequest, http_request: Request):
     global disabled_by_matcher
     matcher_id = request.matcher_id
@@ -513,7 +508,7 @@ def enable_matcher_for_account(account: str, request: MatcherActionRequest, http
 
 # User Management Endpoints
 
-@app.post("/users/login")
+@app.post("/api/users/login")
 async def login_user(user_data: UserLogin):
     """Login endpoint"""
     try:
@@ -549,7 +544,7 @@ async def login_user(user_data: UserLogin):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Login error: {str(e)}")
 
-@app.get("/users", response_model=List[UserResponse])
+@app.get("/api/users", response_model=List[UserResponse])
 async def list_users():
     """List all users (admin only endpoint in production)"""
     try:
@@ -572,7 +567,7 @@ async def list_users():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing users: {str(e)}")
 
-@app.post("/users")
+@app.post("/api/users")
 async def create_user(user_data: UserCreate):
     """Create a new user"""
     try:
@@ -602,7 +597,7 @@ async def create_user(user_data: UserCreate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating user: {str(e)}")
 
-@app.put("/users/{username}")
+@app.put("/api/users/{username}")
 async def update_user_endpoint(username: str, user_data: UserUpdate):
     """Update an existing user"""
     try:
@@ -627,7 +622,7 @@ async def update_user_endpoint(username: str, user_data: UserUpdate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating user: {str(e)}")
 
-@app.put("/users/{username}/password")
+@app.put("/api/users/{username}/password")
 async def change_password(username: str, password_data: PasswordChange):
     """Change user password"""
     try:
@@ -654,7 +649,7 @@ async def change_password(username: str, password_data: PasswordChange):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error changing password: {str(e)}")
 
-@app.put("/users/{username}/toggle")
+@app.put("/api/users/{username}/toggle")
 async def toggle_user_status(username: str):
     """Enable/disable a user (admin can be disabled for security)"""
     try:
@@ -689,7 +684,7 @@ async def toggle_user_status(username: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error toggling user status: {str(e)}")
 
-@app.delete("/users/{username}")
+@app.delete("/api/users/{username}")
 async def delete_user_endpoint(username: str):
     """Delete a user (admin can only be deleted if disabled)"""
     try:
@@ -724,7 +719,7 @@ async def delete_user_endpoint(username: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting user: {str(e)}")
 
-@app.get("/users/{username}")
+@app.get("/api/users/{username}")
 async def get_user_info(username: str):
     """Get user information"""
     try:
@@ -748,7 +743,7 @@ async def get_user_info(username: str):
 
 # Configuration Management Endpoints
 
-@app.get("/config/check")
+@app.get("/api/config/check")
 def check_config():
     """Check if configuration exists (for initial setup detection)"""
     try:
@@ -774,7 +769,7 @@ def check_config():
             "timestamp": datetime.now().isoformat()
         }
 
-@app.get("/config")
+@app.get("/api/config")
 def get_config():
     """Get current configuration"""
     try:
@@ -802,7 +797,7 @@ def get_config():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading configuration: {str(e)}")
 
-@app.post("/config")
+@app.post("/api/config")
 def save_config_endpoint(config_request: ConfigRequest):
     """Save configuration to config.json"""
     try:
@@ -840,7 +835,7 @@ def save_config_endpoint(config_request: ConfigRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving configuration: {str(e)}")
 
-@app.put("/config")
+@app.put("/api/config")
 def put_config(config_data: dict):
     """Replace entire configuration"""
     try:
@@ -1047,7 +1042,7 @@ class AppLogEntry(BaseModel):
     user: Optional[str] = "anonymous"
     session: Optional[str] = ""
 
-@app.post("/logs/app")
+@app.post("/api/logs/app")
 async def save_app_log(log_entry: AppLogEntry, request: Request):
     """Save an application log entry"""
     try:
@@ -1064,7 +1059,7 @@ async def save_app_log(log_entry: AppLogEntry, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save log entry: {str(e)}")
 
-@app.get("/logs/app")
+@app.get("/api/logs/app")
 async def get_app_logs(request: Request, limit: int = 1000):
     """Get application log entries"""
     try:
@@ -1100,7 +1095,7 @@ async def get_app_logs(request: Request, limit: int = 1000):
 
 PREDICTION_LOG_FILE = "./app_data/logs/predictions.log"
 
-@app.get("/logs/predictions")
+@app.get("/api/logs/predictions")
 async def get_prediction_logs(request: Request, limit: int = 1000):
     """Get prediction log entries"""
     try:
@@ -1164,7 +1159,7 @@ def run_git_command(commands, cwd):
     except subprocess.CalledProcessError as e:
         return {"success": False, "error": e.stderr}
 
-@app.post("/git/pull")
+@app.post("/api/git/pull")
 def git_pull(request: Optional[GitRequest] = None):
     """Git pull using configuration from config.json or provided parameters"""
     try:
@@ -1214,7 +1209,7 @@ def git_pull(request: Optional[GitRequest] = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Git pull error: {str(e)}")
 
-@app.post("/git/push")
+@app.post("/api/git/push")
 def git_push(request: Optional[GitRequest] = None):
     """Git push using configuration from config.json or provided parameters"""
     try:
@@ -1269,7 +1264,7 @@ def git_push(request: Optional[GitRequest] = None):
         raise HTTPException(status_code=500, detail=f"Git push error: {str(e)}")
 
 # Endpoint: User system health check
-@app.get("/health")
+@app.get("/api/health")
 def user_health_check():
     """Health check endpoint specifically for user management system"""
     try:
@@ -1754,7 +1749,7 @@ class ComponentResponse(BaseModel):
 components = []  # Almacenamiento en memoria para los componentes
 
 # Endpoint: Agregar componente
-@app.post("/components")
+@app.post("/api/components")
 def add_component(component_data: ComponentCreate):
     """Agregar un nuevo componente"""
     new_component = {
@@ -1772,13 +1767,13 @@ def add_component(component_data: ComponentCreate):
     return {"message": "Componente agregado", "id": new_component["id"]}
 
 # Endpoint: Listar componentes
-@app.get("/components", response_model=List[ComponentResponse])
+@app.get("/api/components", response_model=List[ComponentResponse])
 def list_components():
     """Listar todos los componentes"""
     return components
 
 # Endpoint: Obtener información de un componente
-@app.get("/components/{component_id}", response_model=ComponentResponse)
+@app.get("/api/components/{component_id}", response_model=ComponentResponse)
 def get_component(component_id: str):
     """Obtener información detallada de un componente"""
     component = next((c for c in components if c["id"] == component_id), None)
@@ -1788,7 +1783,7 @@ def get_component(component_id: str):
     return component
 
 # Endpoint: Modificar componente
-@app.put("/components/{component_id}")
+@app.put("/api/components/{component_id}")
 def update_component(component_id: str, component_data: ComponentUpdate):
     """Modificar un componente existente"""
     component = next((c for c in components if c["id"] == component_id), None)
@@ -1811,7 +1806,7 @@ def update_component(component_id: str, component_data: ComponentUpdate):
     return {"message": "Componente modificado"}
 
 # Endpoint: Eliminar componente
-@app.delete("/components/{component_id}")
+@app.delete("/api/components/{component_id}")
 def delete_component(component_id: str):
     """Eliminar un componente"""
     global components
@@ -2112,7 +2107,7 @@ class GitHubTokenRequest(BaseModel):
     token: str
     username: Optional[str] = None
 
-@app.post("/config/github/token")
+@app.post("/api/config/github/token")
 async def save_github_token_endpoint(token_request: GitHubTokenRequest):
     """Save GitHub token securely in encrypted storage"""
     try:
@@ -2151,7 +2146,7 @@ async def save_github_token_endpoint(token_request: GitHubTokenRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving GitHub token: {str(e)}")
 
-@app.get("/config/github/token/exists")
+@app.get("/api/config/github/token/exists")
 async def check_github_token_exists():
     """Check if GitHub token exists in encrypted storage"""
     try:
@@ -2175,7 +2170,7 @@ async def check_github_token_exists():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error checking GitHub token: {str(e)}")
 
-@app.delete("/config/github/token")
+@app.delete("/api/config/github/token")
 async def delete_github_token_endpoint():
     """Delete GitHub token from encrypted storage"""
     try:
@@ -2192,7 +2187,7 @@ async def delete_github_token_endpoint():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting GitHub token: {str(e)}")
 
-@app.post("/git/create-branch")
+@app.post("/api/git/create-branch")
 def git_create_branch(request: dict):
     """Create a new branch in the repository"""
     try:
