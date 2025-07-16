@@ -191,3 +191,20 @@ module.exports = {
   }
 };
 ```
+
+#### Problema 2: Error ENOSPC - File watchers limit
+**Error**: `Error: ENOSPC: System limit for number of file watchers reached`
+**Causa**: Vite intentaba monitorear archivos del entorno virtual Python que no necesita
+**Solución**: 
+1. Aumentar límite del sistema:
+   ```bash
+   echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf
+   sudo sysctl -p
+   ```
+2. Crear `vite.config.js` para excluir carpetas innecesarias del watching:
+   ```javascript
+   // Configuración para ignorar venv, node_modules, etc.
+   watch: {
+     ignored: ['**/venv/**', '**/node_modules/**', ...]
+   }
+   ```
