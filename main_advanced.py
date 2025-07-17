@@ -1746,36 +1746,47 @@ class ComponentResponse(BaseModel):
 # ENDPOINTS DE GESTIÓN DE COMPONENTES
 # ========================================
 
-components = []  # Almacenamiento en memoria para los componentes
-
 # Endpoint: Agregar componente
 @app.post("/api/components")
 def add_component(component_data: ComponentCreate):
     """Agregar un nuevo componente"""
-    new_component = {
-        "id": str(uuid.uuid4()),
-        "name": component_data.name,
-        "value": component_data.value,
-        "description": component_data.description or "",
-        "enabled": component_data.enabled if component_data.enabled is not None else True
-    }
-    components.append(new_component)
-    
-    # Guardar en archivo (opcional)
-    # save_components_to_file(components)
-    
-    return {"message": "Componente agregado", "id": new_component["id"]}
+    try:
+        # Load current components
+        components_data = load_components()
+        
+        new_component = {
+            "id": str(uuid.uuid4()),
+            "name": component_data.name,
+            "value": component_data.value,
+            "description": component_data.description or "",
+            "enabled": component_data.enabled if component_data.enabled is not None else True
+        }
+        
+        # Add to components list
+        components_data["components"].append(new_component)
+        
+        # Save to file
+        save_components(components_data)
+        
+        return {"message": "Componente agregado", "id": new_component["id"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding component: {str(e)}")
 
 # Endpoint: Listar componentes
-@app.get("/api/components", response_model=List[ComponentResponse])
+@app.get("/api/components")
 def list_components():
     """Listar todos los componentes"""
-    return components
+    try:
+        components_data = load_components()
+        return {"components": components_data.get("components", [])}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading components: {str(e)}")
 
 # Endpoint: Obtener información de un componente
 @app.get("/api/components/{component_id}", response_model=ComponentResponse)
 def get_component(component_id: str):
     """Obtener información detallada de un componente"""
+    components = load_components()
     component = next((c for c in components if c["id"] == component_id), None)
     if not component:
         raise HTTPException(status_code=404, detail="Componente no encontrado")
@@ -1786,6 +1797,7 @@ def get_component(component_id: str):
 @app.put("/api/components/{component_id}")
 def update_component(component_id: str, component_data: ComponentUpdate):
     """Modificar un componente existente"""
+    components = load_components()
     component = next((c for c in components if c["id"] == component_id), None)
     if not component:
         raise HTTPException(status_code=404, detail="Componente no encontrado")
@@ -1800,8 +1812,7 @@ def update_component(component_id: str, component_data: ComponentUpdate):
     if component_data.enabled is not None:
         component["enabled"] = component_data.enabled
     
-    # Guardar en archivo (opcional)
-    # save_components_to_file(components)
+    save_components(components)
     
     return {"message": "Componente modificado"}
 
@@ -1809,11 +1820,9 @@ def update_component(component_id: str, component_data: ComponentUpdate):
 @app.delete("/api/components/{component_id}")
 def delete_component(component_id: str):
     """Eliminar un componente"""
-    global components
+    components = load_components()
     components = [c for c in components if c["id"] != component_id]
-    
-    # Guardar en archivo (opcional)
-    # save_components_to_file(components)
+    save_components(components)
     
     return {"message": "Componente eliminado"}
 
