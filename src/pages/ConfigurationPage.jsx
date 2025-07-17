@@ -44,7 +44,7 @@ function GitHubConfigPanel({
   const checkGitHubCredentials = async () => {
     setCheckingCredentials(true);
     try {
-      const response = await fetch('/config/github/token/exists', {
+      const response = await fetch('/api/config/github/token/exists', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -71,7 +71,7 @@ function GitHubConfigPanel({
 
     setSavingCredentials(true);
     try {
-      const response = await fetch('/config/github/token', {
+      const response = await fetch('/api/config/github/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -105,7 +105,7 @@ function GitHubConfigPanel({
     }
 
     try {
-      const response = await fetch('/config/github/token', {
+      const response = await fetch('/api/config/github/token', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
       });

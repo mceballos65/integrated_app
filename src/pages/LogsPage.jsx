@@ -340,7 +340,7 @@ export default function LogsPage() {
     showStatusMessage("Loading prediction logs...");
 
     try {
-      const response = await fetch(`${backendUrl}/logs/predictions?limit=${maxLogEntries || 1000}`);
+      const response = await fetch(`${backendUrl}/api/logs/predictions?limit=${maxLogEntries || 1000}`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch prediction logs: ${response.status}`);
@@ -377,7 +377,7 @@ export default function LogsPage() {
     showStatusMessage("Loading application logs...");
 
     try {
-      const response = await fetch(`${backendUrl}/logs/app?limit=1000`);
+      const response = await fetch(`${backendUrl}/api/logs/app?limit=1000`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch application logs: ${response.status}`);

@@ -46,7 +46,7 @@ class AppLogger {
       try {
         const backendUrl = getBackendUrl();
         if (backendUrl) {
-          await fetch(`${backendUrl}/logs/app`, {
+          await fetch(`${backendUrl}/api/logs/app`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

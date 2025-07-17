@@ -45,7 +45,7 @@ class UserApiService {
 
   // Health check
   async healthCheck() {
-    return await this.makeRequest('/health');
+    return await this.makeRequest('/api/health');
   }
 
   // Authentication
@@ -84,7 +84,7 @@ class UserApiService {
       throw new Error('The default admin user has been disabled for security reasons. Please use a different administrator account.');
     }
 
-    const response = await this.makeRequest('/users/login', {
+    const response = await this.makeRequest('/api/users/login', {
       method: 'POST',
       body: JSON.stringify({ username, password })
     });
@@ -115,15 +115,15 @@ class UserApiService {
 
   // User management
   async getUsers() {
-    return await this.makeRequest('/users');
+    return await this.makeRequest('/api/users');
   }
 
   async getUser(username) {
-    return await this.makeRequest(`/users/${username}`);
+    return await this.makeRequest(`/api/users/${username}`);
   }
 
   async createUser(username, password, isActive = true) {
-    const result = await this.makeRequest('/users', {
+    const result = await this.makeRequest('/api/users', {
       method: 'POST',
       body: JSON.stringify({
         username,
@@ -138,7 +138,7 @@ class UserApiService {
   }
 
   async updateUser(username, userData) {
-    const result = await this.makeRequest(`/users/${username}`, {
+    const result = await this.makeRequest(`/api/users/${username}`, {
       method: 'PUT',
       body: JSON.stringify(userData)
     });
@@ -149,7 +149,7 @@ class UserApiService {
   }
 
   async deleteUser(username) {
-    const result = await this.makeRequest(`/users/${username}`, {
+    const result = await this.makeRequest(`/api/users/${username}`, {
       method: 'DELETE'
     });
     
@@ -159,7 +159,7 @@ class UserApiService {
   }
 
   async toggleUserStatus(username) {
-    const result = await this.makeRequest(`/users/${username}/toggle`, {
+    const result = await this.makeRequest(`/api/users/${username}/toggle`, {
       method: 'PUT'
     });
     
@@ -169,7 +169,7 @@ class UserApiService {
   }
 
   async changePassword(username, currentPassword, newPassword) {
-    const result = await this.makeRequest(`/users/${username}/password`, {
+    const result = await this.makeRequest(`/api/users/${username}/password`, {
       method: 'PUT',
       body: JSON.stringify({
         current_password: currentPassword,

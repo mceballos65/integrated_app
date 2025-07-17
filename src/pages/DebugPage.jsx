@@ -571,8 +571,8 @@ const DebugPage = () => {
               <div className="space-y-1 text-gray-600">
                 <div><span className="font-medium">Service URL:</span> {userApiService.baseUrl}</div>
                 <div><span className="font-medium">Test URL:</span> {customUrl}</div>
-                <div><span className="font-medium">Health Endpoint:</span> {customUrl}/health</div>
-                <div><span className="font-medium">Login Endpoint:</span> {customUrl}/users/login</div>
+                <div><span className="font-medium">Health Endpoint:</span> {customUrl}/api/health</div>
+                <div><span className="font-medium">Login Endpoint:</span> {customUrl}/api/users/login</div>
               </div>
             </div>
             <div>

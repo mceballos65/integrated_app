@@ -140,7 +140,7 @@ export async function loadConfig() {
     
     if (!response.ok) {
       // Si el archivo no existe, intentar la API antigua como compatibilidad
-      const legacyResponse = await fetch(`${getBackendUrl()}/config`);
+      const legacyResponse = await fetch(`${getBackendUrl()}/api/config`);
       if (!legacyResponse.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
