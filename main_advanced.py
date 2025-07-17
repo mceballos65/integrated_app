@@ -10,6 +10,8 @@ import uuid
 import fnmatch
 import json
 import os
+import shutil
+import tempfile
 from fastapi.middleware.cors import CORSMiddleware
 import subprocess
 
@@ -1189,44 +1191,166 @@ def add_specific_files_to_git(files_to_sync, base_path):
     
     return {"success": True, "output": f"Added {len(file_list)} specific files to git"}
 
+def create_isolated_git_repo(files_to_sync, base_path, repo_url, branch_name, github_username, github_token):
+    """Create an isolated git repository with only the specified files"""
+    import tempfile
+    import shutil
+    
+    # Create temporary directory
+    temp_dir = tempfile.mkdtemp(prefix="git_sync_")
+    
+    try:
+        # Parse the files list
+        file_list = [f.strip() for f in files_to_sync.split('\n') if f.strip()]
+        
+        # Copy only the specified files to temp directory, maintaining directory structure
+        for file_path in file_list:
+            if file_path.startswith('./'):
+                clean_file_path = file_path[2:]
+            else:
+                clean_file_path = file_path
+            
+            source_file = os.path.join(base_path, clean_file_path) if not os.path.isabs(clean_file_path) else clean_file_path
+            dest_file = os.path.join(temp_dir, clean_file_path)
+            
+            if os.path.exists(source_file):
+                # Create directory structure if needed
+                os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+                shutil.copy2(source_file, dest_file)
+                print(f"Copied {source_file} to {dest_file}")
+            else:
+                print(f"Warning: File {source_file} does not exist, skipping...")
+        
+        # Initialize git repo in temp directory
+        run_git_command(["git", "init"], temp_dir)
+        run_git_command(["git", "config", "user.name", github_username], temp_dir)
+        run_git_command(["git", "config", "user.email", f"{github_username}@users.noreply.github.com"], temp_dir)
+        
+        # Set up remote with authentication
+        repo_url_with_auth = repo_url.replace(
+            "https://", f"https://{github_username}:{github_token}@"
+        )
+        run_git_command(["git", "remote", "add", "origin", repo_url_with_auth], temp_dir)
+        
+        return temp_dir, file_list
+        
+    except Exception as e:
+        # Clean up on error
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        raise e
+
+def sync_files_back_to_source(temp_dir, file_list, base_path):
+    """Copy files from temp repo back to source directory after pull"""
+    for file_path in file_list:
+        if file_path.startswith('./'):
+            clean_file_path = file_path[2:]
+        else:
+            clean_file_path = file_path
+        
+        source_file = os.path.join(temp_dir, clean_file_path)
+        dest_file = os.path.join(base_path, clean_file_path) if not os.path.isabs(clean_file_path) else clean_file_path
+        
+        if os.path.exists(source_file):
+            # Create directory structure if needed
+            os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+            shutil.copy2(source_file, dest_file)
+            print(f"Synced {source_file} back to {dest_file}")
+
 @app.post("/api/git/pull")
 def git_pull(request: Optional[GitRequest] = None):
-    """Git pull using configuration from config.json or provided parameters"""
+    """Git pull using configuration from config.json with specific files only"""
     try:
+        # Get config data including files to sync
+        config_data = load_config()
+        files_to_sync = config_data.get('filesToSync', '')
+        
+        if not files_to_sync:
+            raise HTTPException(
+                status_code=400,
+                detail="No files specified to sync. Please configure 'Files to Backup' in GitHub integration settings."
+            )
+
         # Try to get GitHub config from config.json first
         github_config = get_github_config()
         
         if github_config:
-            # Use config from file
-            repo_url_with_auth = github_config["repositoryUrl"].replace(
-                "https://", f"https://{github_config['githubUsername']}:{github_config['githubToken']}@"
-            )
+            # Get the local path where the app runs
+            base_path = github_config.get("localPath", ".")
+            if base_path == ".":
+                base_path = os.getcwd()
             
-            run_git_command(["git", "remote", "set-url", "origin", repo_url_with_auth], github_config["localPath"])
-            run_git_command(["git", "checkout", github_config["branchName"]], github_config["localPath"])
-            result = run_git_command(["git", "pull", "origin", github_config["branchName"]], github_config["localPath"])
-            
-            return {
-                **result,
-                "source": "config.json",
-                "message": "Git pull completed using configuration from config.json"
-            }
+            # Create isolated git repository with only specified files
+            temp_dir = None
+            try:
+                temp_dir, file_list = create_isolated_git_repo(
+                    files_to_sync, base_path, github_config["repositoryUrl"], 
+                    github_config["branchName"], github_config["githubUsername"], 
+                    github_config["githubToken"]
+                )
+                
+                # Try to fetch and pull from remote
+                fetch_result = run_git_command(["git", "fetch", "origin", github_config["branchName"]], temp_dir)
+                if not fetch_result["success"]:
+                    print(f"Fetch failed (might be new repo): {fetch_result['output']}")
+                
+                # Try to checkout/create the branch
+                checkout_result = run_git_command(["git", "checkout", "-B", github_config["branchName"], f"origin/{github_config['branchName']}"], temp_dir)
+                if not checkout_result["success"]:
+                    run_git_command(["git", "checkout", "-b", github_config["branchName"]], temp_dir)
+                
+                # Sync files back to source directory
+                sync_files_back_to_source(temp_dir, file_list, base_path)
+                
+                result_output = f"Successfully pulled {len(file_list)} files from {github_config['repositoryUrl']}:{github_config['branchName']}"
+                
+                return {
+                    "success": True,
+                    "output": result_output,
+                    "source": "config.json",
+                    "message": "Git pull completed using configuration from config.json"
+                }
+                
+            finally:
+                # Clean up temp directory
+                if temp_dir and os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir, ignore_errors=True)
         
         elif request:
             # Fallback to provided parameters
-            repo_url_with_auth = request.repository_url.replace(
-                "https://", f"https://{request.github_username}:{request.github_token}@"
-            )
-
-            run_git_command(["git", "remote", "set-url", "origin", repo_url_with_auth], request.local_path)
-            run_git_command(["git", "checkout", request.branch_name], request.local_path)
-            result = run_git_command(["git", "pull", "origin", request.branch_name], request.local_path)
+            base_path = request.local_path or "."
+            if base_path == ".":
+                base_path = os.getcwd()
             
-            return {
-                **result,
-                "source": "request_parameters",
-                "message": "Git pull completed using provided parameters"
-            }
+            temp_dir = None
+            try:
+                temp_dir, file_list = create_isolated_git_repo(
+                    files_to_sync, base_path, request.repository_url, 
+                    request.branch_name, request.github_username, 
+                    request.github_token
+                )
+                
+                fetch_result = run_git_command(["git", "fetch", "origin", request.branch_name], temp_dir)
+                if not fetch_result["success"]:
+                    print(f"Fetch failed (might be new repo): {fetch_result['output']}")
+                
+                checkout_result = run_git_command(["git", "checkout", "-B", request.branch_name, f"origin/{request.branch_name}"], temp_dir)
+                if not checkout_result["success"]:
+                    run_git_command(["git", "checkout", "-b", request.branch_name], temp_dir)
+                
+                sync_files_back_to_source(temp_dir, file_list, base_path)
+                
+                result_output = f"Successfully pulled {len(file_list)} files from {request.repository_url}:{request.branch_name}"
+                
+                return {
+                    "success": True,
+                    "output": result_output,
+                    "source": "request_parameters",
+                    "message": "Git pull completed using provided parameters"
+                }
+                
+            finally:
+                if temp_dir and os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir, ignore_errors=True)
         
         else:
             raise HTTPException(
@@ -1241,58 +1365,103 @@ def git_pull(request: Optional[GitRequest] = None):
 
 @app.post("/api/git/push")
 def git_push(request: Optional[GitRequest] = None):
-    """Git push using configuration from config.json or provided parameters"""
+    """Git push using configuration from config.json with specific files only"""
     try:
+        # Get config data including files to sync
+        config_data = load_config()
+        files_to_sync = config_data.get('filesToSync', '')
+        
+        if not files_to_sync:
+            raise HTTPException(
+                status_code=400,
+                detail="No files specified to sync. Please configure 'Files to Backup' in GitHub integration settings."
+            )
+
         # Try to get GitHub config from config.json first
         github_config = get_github_config()
         
         if github_config:
-            # Use config from file
-            repo_url_with_auth = github_config["repositoryUrl"].replace(
-                "https://", f"https://{github_config['githubUsername']}:{github_config['githubToken']}@"
-            )
+            # Get the local path where the app runs
+            base_path = github_config.get("localPath", ".")
+            if base_path == ".":
+                base_path = os.getcwd()
             
-            run_git_command(["git", "remote", "set-url", "origin", repo_url_with_auth], github_config["localPath"])
-            run_git_command(["git", "checkout", github_config["branchName"]], github_config["localPath"])
-            
-            # Use specific files if configured, otherwise add all files
-            files_to_sync = github_config.get("filesToSync", "")
-            add_result = add_specific_files_to_git(files_to_sync, github_config["localPath"])
-            if not add_result["success"]:
-                raise HTTPException(status_code=500, detail=f"Failed to add files: {add_result['error']}")
-            
-            run_git_command(["git", "commit", "-m", "Automated commit from web app"], github_config["localPath"])
-            result = run_git_command(["git", "push", "origin", github_config["branchName"]], github_config["localPath"])
-            
-            return {
-                **result,
-                "source": "config.json",
-                "message": "Git push completed using configuration from config.json"
-            }
+            # Create isolated git repository with only specified files
+            temp_dir = None
+            try:
+                temp_dir, file_list = create_isolated_git_repo(
+                    files_to_sync, base_path, github_config["repositoryUrl"], 
+                    github_config["branchName"], github_config["githubUsername"], 
+                    github_config["githubToken"]
+                )
+                
+                # Add all files in the temp directory
+                run_git_command(["git", "add", "."], temp_dir)
+                
+                # Commit changes
+                commit_result = run_git_command(["git", "commit", "-m", "Automated commit from web app"], temp_dir)
+                if not commit_result["success"] and "nothing to commit" not in commit_result["output"].lower():
+                    print(f"Commit warning: {commit_result['output']}")
+                
+                # Push to remote
+                push_result = run_git_command(["git", "push", "origin", github_config["branchName"]], temp_dir)
+                if not push_result["success"]:
+                    # Try to set upstream and push
+                    run_git_command(["git", "push", "--set-upstream", "origin", github_config["branchName"]], temp_dir)
+                
+                result_output = f"Successfully pushed {len(file_list)} files to {github_config['repositoryUrl']}:{github_config['branchName']}"
+                
+                return {
+                    "success": True,
+                    "output": result_output,
+                    "source": "config.json",
+                    "message": "Git push completed using configuration from config.json"
+                }
+                
+            finally:
+                # Clean up temp directory
+                if temp_dir and os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir, ignore_errors=True)
         
         elif request:
             # Fallback to provided parameters
-            repo_url_with_auth = request.repository_url.replace(
-                "https://", f"https://{request.github_username}:{request.github_token}@"
-            )
-
-            run_git_command(["git", "remote", "set-url", "origin", repo_url_with_auth], request.local_path)
-            run_git_command(["git", "checkout", request.branch_name], request.local_path)
+            base_path = request.local_path or "."
+            if base_path == ".":
+                base_path = os.getcwd()
             
-            # Use specific files if configured in the request, otherwise add all files
-            files_to_sync = request.files_to_sync if hasattr(request, 'files_to_sync') else ""
-            add_result = add_specific_files_to_git(files_to_sync, request.local_path)
-            if not add_result["success"]:
-                raise HTTPException(status_code=500, detail=f"Failed to add files: {add_result['error']}")
-            
-            run_git_command(["git", "commit", "-m", "Automated commit from web app"], request.local_path)
-            result = run_git_command(["git", "push", "origin", request.branch_name], request.local_path)
-            
-            return {
-                **result,
-                "source": "request_parameters", 
-                "message": "Git push completed using provided parameters"
-            }
+            temp_dir = None
+            try:
+                temp_dir, file_list = create_isolated_git_repo(
+                    files_to_sync, base_path, request.repository_url, 
+                    request.branch_name, request.github_username, 
+                    request.github_token
+                )
+                
+                # Add all files in the temp directory
+                run_git_command(["git", "add", "."], temp_dir)
+                
+                # Commit changes
+                commit_result = run_git_command(["git", "commit", "-m", "Automated commit from web app"], temp_dir)
+                if not commit_result["success"] and "nothing to commit" not in commit_result["output"].lower():
+                    print(f"Commit warning: {commit_result['output']}")
+                
+                # Push to remote
+                push_result = run_git_command(["git", "push", "origin", request.branch_name], temp_dir)
+                if not push_result["success"]:
+                    run_git_command(["git", "push", "--set-upstream", "origin", request.branch_name], temp_dir)
+                
+                result_output = f"Successfully pushed {len(file_list)} files to {request.repository_url}:{request.branch_name}"
+                
+                return {
+                    "success": True,
+                    "output": result_output,
+                    "source": "request_parameters",
+                    "message": "Git push completed using provided parameters"
+                }
+                
+            finally:
+                if temp_dir and os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir, ignore_errors=True)
         
         else:
             raise HTTPException(
