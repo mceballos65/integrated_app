@@ -1231,7 +1231,14 @@ def create_isolated_git_repo(files_to_sync, base_path, repo_url, branch_name, gi
             else:
                 clean_file_path = file_path
             
-            source_file = os.path.join(base_path, clean_file_path) if not os.path.isabs(clean_file_path) else clean_file_path
+            # If the file path already starts with the base path directory name, don't duplicate it
+            if clean_file_path.startswith('app_data/') and base_path.endswith('app_data/'):
+                # Remove the app_data/ prefix since base_path already includes it
+                relative_file_path = clean_file_path[9:]  # Remove "app_data/" prefix
+                source_file = os.path.join(base_path, relative_file_path)
+            else:
+                source_file = os.path.join(base_path, clean_file_path) if not os.path.isabs(clean_file_path) else clean_file_path
+            
             dest_file = os.path.join(temp_dir, clean_file_path)
             
             print(f"Checking file: {source_file}")
@@ -1442,13 +1449,13 @@ app_data/logs/predictions.log"""
             temp_dir = None
             try:
                 print("Creating isolated git repository...")
-                temp_dir, file_list = create_isolated_git_repo(
+                temp_dir, copied_files = create_isolated_git_repo(
                     files_to_sync, base_path, github_config["repositoryUrl"], 
                     github_config["branchName"], github_config["githubUsername"], 
                     github_config["githubToken"]
                 )
                 print(f"Temp directory created: {temp_dir}")
-                print(f"Files to process: {file_list}")
+                print(f"Files copied: {copied_files}")
                 
                 # Add all files in the temp directory
                 print("Adding files to git...")
@@ -1460,8 +1467,14 @@ app_data/logs/predictions.log"""
                 commit_result = run_git_command(["git", "commit", "-m", "Automated commit from web app"], temp_dir)
                 print(f"Git commit result: {commit_result}")
                 
-                if not commit_result["success"] and "nothing to commit" not in commit_result["output"].lower():
-                    print(f"Commit warning: {commit_result['output']}")
+                # Handle commit result properly
+                if not commit_result["success"]:
+                    commit_output = commit_result.get("output", commit_result.get("error", "Unknown commit error"))
+                    if "nothing to commit" not in commit_output.lower():
+                        print(f"Commit failed: {commit_output}")
+                        # Continue anyway, maybe there are no changes to commit
+                    else:
+                        print("No changes to commit - this is normal")
                 
                 # Push to remote
                 print("Pushing to remote...")
@@ -1473,8 +1486,13 @@ app_data/logs/predictions.log"""
                     print("Trying to set upstream and push...")
                     upstream_result = run_git_command(["git", "push", "--set-upstream", "origin", github_config["branchName"]], temp_dir)
                     print(f"Git push upstream result: {upstream_result}")
+                    
+                    # If upstream push also fails, check the error
+                    if not upstream_result["success"]:
+                        push_error = upstream_result.get("output", upstream_result.get("error", "Unknown push error"))
+                        raise Exception(f"Git push failed: {push_error}")
                 
-                result_output = f"Successfully pushed {len(file_list)} files to {github_config['repositoryUrl']}:{github_config['branchName']}"
+                result_output = f"Successfully pushed {len(copied_files)} files to {github_config['repositoryUrl']}:{github_config['branchName']}"
                 print(f"Success: {result_output}")
                 
                 return {
