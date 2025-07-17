@@ -1786,45 +1786,75 @@ def list_components():
 @app.get("/api/components/{component_id}", response_model=ComponentResponse)
 def get_component(component_id: str):
     """Obtener información detallada de un componente"""
-    components = load_components()
-    component = next((c for c in components if c["id"] == component_id), None)
-    if not component:
-        raise HTTPException(status_code=404, detail="Componente no encontrado")
-    
-    return component
+    try:
+        components_data = load_components()
+        components_list = components_data.get("components", [])
+        
+        component = next((c for c in components_list if c["id"] == component_id), None)
+        if not component:
+            raise HTTPException(status_code=404, detail="Componente no encontrado")
+        
+        return component
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error getting component: {e}")
+        raise HTTPException(status_code=500, detail=f"Error getting component: {str(e)}")
 
 # Endpoint: Modificar componente
 @app.put("/api/components/{component_id}")
 def update_component(component_id: str, component_data: ComponentUpdate):
     """Modificar un componente existente"""
-    components = load_components()
-    component = next((c for c in components if c["id"] == component_id), None)
-    if not component:
-        raise HTTPException(status_code=404, detail="Componente no encontrado")
-    
-    # Actualizar campos
-    if component_data.name is not None:
-        component["name"] = component_data.name
-    if component_data.value is not None:
-        component["value"] = component_data.value
-    if component_data.description is not None:
-        component["description"] = component_data.description
-    if component_data.enabled is not None:
-        component["enabled"] = component_data.enabled
-    
-    save_components(components)
-    
-    return {"message": "Componente modificado"}
+    try:
+        components_data = load_components()
+        components_list = components_data.get("components", [])
+        
+        # Find the component to update
+        component = next((c for c in components_list if c["id"] == component_id), None)
+        if not component:
+            raise HTTPException(status_code=404, detail="Componente no encontrado")
+        
+        # Actualizar campos
+        if component_data.name is not None:
+            component["name"] = component_data.name
+        if component_data.value is not None:
+            component["value"] = component_data.value
+        if component_data.description is not None:
+            component["description"] = component_data.description
+        if component_data.enabled is not None:
+            component["enabled"] = component_data.enabled
+        
+        # Save back to file
+        save_components(components_data)
+        
+        return {"message": "Componente modificado"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error updating component: {e}")
+        raise HTTPException(status_code=500, detail=f"Error updating component: {str(e)}")
 
 # Endpoint: Eliminar componente
 @app.delete("/api/components/{component_id}")
 def delete_component(component_id: str):
     """Eliminar un componente"""
-    components = load_components()
-    components = [c for c in components if c["id"] != component_id]
-    save_components(components)
-    
-    return {"message": "Componente eliminado"}
+    try:
+        components_data = load_components()
+        components_list = components_data.get("components", [])
+        
+        # Filter out the component to delete
+        updated_components = [c for c in components_list if c["id"] != component_id]
+        
+        # Update the components data
+        components_data["components"] = updated_components
+        
+        # Save back to file
+        save_components(components_data)
+        
+        return {"message": "Componente eliminado"}
+    except Exception as e:
+        logging.error(f"Error deleting component: {e}")
+        raise HTTPException(status_code=500, detail=f"Error deleting component: {str(e)}")
 
 # Component management functions
 COMPONENT_LIST_FILE = "app_data/config/component_list.json"
