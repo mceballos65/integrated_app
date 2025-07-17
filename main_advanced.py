@@ -1492,9 +1492,14 @@ app_data/logs/predictions.log"""
                 checkout_result = run_git_command(["git", "checkout", "-B", github_config["branchName"]], temp_dir)
                 print(f"Git checkout -B result: {checkout_result}")
                 
-                if not checkout_result["success"]:
-                    print(f"Failed to create/checkout branch: {checkout_result}")
-                    # Continue anyway - we're already on the default branch
+                # If branch exists remotely, try to merge remote changes first
+                if fetch_result["success"]:
+                    print("Attempting to pull remote changes...")
+                    pull_result = run_git_command(["git", "pull", "origin", github_config["branchName"]], temp_dir)
+                    print(f"Git pull result: {pull_result}")
+                    
+                    if not pull_result["success"]:
+                        print("Pull failed, will attempt force push instead")
                 
                 # Push to remote - try normal push first
                 print("Pushing to remote...")
@@ -1507,25 +1512,31 @@ app_data/logs/predictions.log"""
                     upstream_result = run_git_command(["git", "push", "--set-upstream", "origin", github_config["branchName"]], temp_dir)
                     print(f"Git push --set-upstream result: {upstream_result}")
                     
-                    # If upstream push also fails, try pushing current branch to remote
+                    # If upstream push also fails, try force push
                     if not upstream_result["success"]:
-                        print("Upstream push failed, trying to push current branch...")
-                        # Get current branch name
-                        branch_result = run_git_command(["git", "branch", "--show-current"], temp_dir)
-                        if branch_result["success"]:
-                            current_branch = branch_result["output"].strip()
-                            print(f"Current branch: {current_branch}")
-                            
-                            # Try to push current branch to target branch
-                            force_push_result = run_git_command(["git", "push", "origin", f"{current_branch}:{github_config['branchName']}"], temp_dir)
-                            print(f"Git push current:target result: {force_push_result}")
-                            
-                            if not force_push_result["success"]:
+                        print("Upstream push failed, trying force push...")
+                        force_push_result = run_git_command(["git", "push", "--force", "origin", github_config["branchName"]], temp_dir)
+                        print(f"Git push --force result: {force_push_result}")
+                        
+                        # If force push also fails, try one more approach
+                        if not force_push_result["success"]:
+                            print("Force push failed, trying final approach with current branch...")
+                            # Get current branch name
+                            branch_result = run_git_command(["git", "branch", "--show-current"], temp_dir)
+                            if branch_result["success"]:
+                                current_branch = branch_result["output"].strip()
+                                print(f"Current branch: {current_branch}")
+                                
+                                # Try to push current branch to target branch with force
+                                final_push_result = run_git_command(["git", "push", "--force", "origin", f"{current_branch}:{github_config['branchName']}"], temp_dir)
+                                print(f"Git push --force current:target result: {final_push_result}")
+                                
+                                if not final_push_result["success"]:
+                                    push_error = final_push_result.get("output", final_push_result.get("error", "Unknown push error"))
+                                    raise Exception(f"All push attempts failed. Last error: {push_error}")
+                            else:
                                 push_error = force_push_result.get("output", force_push_result.get("error", "Unknown push error"))
-                                raise Exception(f"All push attempts failed. Last error: {push_error}")
-                        else:
-                            push_error = upstream_result.get("output", upstream_result.get("error", "Unknown push error"))
-                            raise Exception(f"Git push failed: {push_error}")
+                                raise Exception(f"Git push failed: {push_error}")
                 
                 result_output = f"Successfully pushed {len(copied_files)} files to {github_config['repositoryUrl']}:{github_config['branchName']}"
                 print(f"Success: {result_output}")
@@ -1569,10 +1580,22 @@ app_data/logs/predictions.log"""
                 if not commit_result["success"] and "nothing to commit" not in commit_result["output"].lower():
                     print(f"Commit warning: {commit_result['output']}")
                 
-                # Push to remote
+                # Fetch remote changes first
+                fetch_result = run_git_command(["git", "fetch", "origin"], temp_dir)
+                if fetch_result["success"]:
+                    # Try to pull remote changes
+                    pull_result = run_git_command(["git", "pull", "origin", request.branch_name], temp_dir)
+                    if not pull_result["success"]:
+                        print("Pull failed, will attempt force push instead")
+                
+                # Push to remote - try normal push first
                 push_result = run_git_command(["git", "push", "origin", request.branch_name], temp_dir)
                 if not push_result["success"]:
-                    run_git_command(["git", "push", "--set-upstream", "origin", request.branch_name], temp_dir)
+                    # Try with --set-upstream
+                    upstream_result = run_git_command(["git", "push", "--set-upstream", "origin", request.branch_name], temp_dir)
+                    if not upstream_result["success"]:
+                        # Try force push as final option
+                        run_git_command(["git", "push", "--force", "origin", request.branch_name], temp_dir)
                 
                 result_output = f"Successfully pushed {len(file_list)} files to {request.repository_url}:{request.branch_name}"
                 
