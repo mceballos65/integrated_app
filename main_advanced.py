@@ -1233,22 +1233,30 @@ def create_isolated_git_repo(files_to_sync, base_path, repo_url, branch_name, gi
             
             # Determine the correct source file path
             # The key is that base_path should be the project root, and files are relative to that
+            print(f"\n--- Processing file for copy: '{clean_file_path}' ---")
+            print(f"Base path received: '{base_path}'")
+            print(f"Current working directory: '{os.getcwd()}'")
+            
             if base_path == "." or base_path == os.getcwd():
                 # We're in the project root directory
                 project_root = os.getcwd()
+                print(f"Using current working directory as project root: '{project_root}'")
             else:
                 # base_path might be configured to a specific directory
                 # If it points to app_data specifically, go up one level
                 if os.path.basename(base_path.rstrip('/\\')) == 'app_data':
                     project_root = os.path.dirname(base_path.rstrip('/\\'))
+                    print(f"base_path points to app_data, going up one level: '{project_root}'")
                 else:
                     project_root = base_path
+                    print(f"Using base_path as project root: '{project_root}'")
             
             source_file = os.path.join(project_root, clean_file_path)
             dest_file = os.path.join(temp_dir, clean_file_path)
             
-            print(f"Project root: {project_root}")
-            print(f"Checking file: {source_file}")
+            print(f"Source file calculated: '{source_file}'")
+            print(f"Destination file (temp): '{dest_file}'")
+            print(f"Source file exists: {os.path.exists(source_file)}")
             
             if os.path.exists(source_file):
                 # Create directory structure if needed
@@ -1295,8 +1303,18 @@ def create_isolated_git_repo(files_to_sync, base_path, repo_url, branch_name, gi
 def sync_files_back_to_source(temp_dir, file_list, base_path):
     """Copy files from temp repo back to source directory after pull"""
     print(f"=== Syncing files back to source ===")
-    print(f"Base path: {base_path}")
+    print(f"Base path received: '{base_path}'")
     print(f"File list: {file_list}")
+    print(f"Current working directory: '{os.getcwd()}'")
+    print(f"Temp directory: '{temp_dir}'")
+    
+    # Check what base_path looks like
+    print(f"Base path details:")
+    print(f"  - Raw value: '{base_path}'")
+    print(f"  - Absolute path: '{os.path.abspath(base_path)}'")
+    print(f"  - Base name: '{os.path.basename(base_path.rstrip('/\\'))}'")
+    print(f"  - Directory name: '{os.path.dirname(base_path.rstrip('/\\'))}'")
+    print(f"  - Ends with app_data: {base_path.endswith(('app_data', 'app_data/'))}")
     
     for file_path in file_list:
         if file_path.startswith('./'):
@@ -1304,42 +1322,81 @@ def sync_files_back_to_source(temp_dir, file_list, base_path):
         else:
             clean_file_path = file_path
         
+        print(f"\n--- Processing file: '{clean_file_path}' ---")
+        
         # Source file in temp directory
         source_file = os.path.join(temp_dir, clean_file_path)
-        
-        # For destination, we need to handle the path correctly
-        # The key insight: base_path should be the root of the project, not app_data specifically
-        # So if we have app_data/config/file.json, we want to put it relative to project root
+        print(f"Source file (temp): '{source_file}'")
+        print(f"Source file exists: {os.path.exists(source_file)}")
         
         # Determine the project root directory
         if base_path == "." or base_path == os.getcwd():
             # We're in the project root directory
             project_root = os.getcwd()
+            print(f"Using current working directory as project root: '{project_root}'")
         else:
             # base_path might be configured to a specific directory
             # If it points to app_data specifically, go up one level
             if os.path.basename(base_path.rstrip('/\\')) == 'app_data':
                 project_root = os.path.dirname(base_path.rstrip('/\\'))
+                print(f"base_path points to app_data, going up one level: '{project_root}'")
             else:
                 project_root = base_path
+                print(f"Using base_path as project root: '{project_root}'")
         
         # Destination file should be relative to project root
         dest_file = os.path.join(project_root, clean_file_path)
         
-        print(f"Project root: {project_root}")
-        print(f"Attempting to sync: {source_file} -> {dest_file}")
+        print(f"Project root determined: '{project_root}'")
+        print(f"Destination file calculated: '{dest_file}'")
+        print(f"Destination directory: '{os.path.dirname(dest_file)}'")
+        print(f"Destination directory exists: {os.path.exists(os.path.dirname(dest_file))}")
         
         if os.path.exists(source_file):
             # Create directory structure if needed
             dest_dir = os.path.dirname(dest_file)
             if dest_dir:
+                print(f"Creating destination directory if needed: '{dest_dir}'")
                 os.makedirs(dest_dir, exist_ok=True)
-                print(f"Created directory: {dest_dir}")
+                print(f"Directory created/exists: {os.path.exists(dest_dir)}")
             
+            print(f"COPYING: '{source_file}' -> '{dest_file}'")
             shutil.copy2(source_file, dest_file)
-            print(f"Successfully synced {source_file} to {dest_file}")
+            
+            # Verify the copy worked
+            if os.path.exists(dest_file):
+                print(f"✅ COPY SUCCESSFUL: File exists at '{dest_file}'")
+                # Get file stats
+                src_stat = os.stat(source_file)
+                dst_stat = os.stat(dest_file)
+                print(f"   Source size: {src_stat.st_size} bytes")
+                print(f"   Dest size: {dst_stat.st_size} bytes")
+            else:
+                print(f"❌ COPY FAILED: File does not exist at '{dest_file}'")
         else:
-            print(f"Warning: Source file {source_file} does not exist, skipping...")
+            print(f"⚠️  WARNING: Source file '{source_file}' does not exist, skipping...")
+    
+    print(f"\n=== Sync complete ===")
+    print(f"Final check - listing contents of project areas:")
+    
+    # List some key directories to see what's there
+    try:
+        if project_root and os.path.exists(project_root):
+            print(f"\nContents of project root '{project_root}':")
+            for item in os.listdir(project_root):
+                item_path = os.path.join(project_root, item)
+                item_type = "DIR" if os.path.isdir(item_path) else "FILE"
+                print(f"  {item_type}: {item}")
+        
+        app_data_path = os.path.join(project_root, "app_data") if project_root else None
+        if app_data_path and os.path.exists(app_data_path):
+            print(f"\nContents of app_data '{app_data_path}':")
+            for item in os.listdir(app_data_path):
+                item_path = os.path.join(app_data_path, item)
+                item_type = "DIR" if os.path.isdir(item_path) else "FILE"
+                print(f"  {item_type}: {item}")
+    except Exception as e:
+        print(f"Error listing directories: {e}")
 
 @app.post("/api/git/pull")
 def git_pull(request: Optional[GitRequest] = None):
@@ -1416,6 +1473,10 @@ app_data/logs/predictions.log"""
                 
                 # Sync files back to source directory
                 print("Syncing files back to source...")
+                print(f"About to call sync_files_back_to_source with:")
+                print(f"  temp_dir: '{temp_dir}'")
+                print(f"  file_list: {file_list}")
+                print(f"  base_path: '{base_path}'")
                 sync_files_back_to_source(temp_dir, file_list, base_path)
                 
                 result_output = f"Successfully pulled {len(file_list)} files from {github_config['repositoryUrl']}:{github_config['branchName']}"
