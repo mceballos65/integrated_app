@@ -1305,48 +1305,81 @@ def sync_files_back_to_source(temp_dir, file_list, base_path):
 def git_pull(request: Optional[GitRequest] = None):
     """Git pull using configuration from config.json with specific files only"""
     try:
+        print("=== Starting Git Pull ===")
+        
         # Get config data including files to sync
         config_data = load_config()
-        files_to_sync = config_data.get('filesToSync', '')
+        print(f"Config data loaded: {config_data.keys() if config_data else 'None'}")
         
+        # First try to get filesToSync from config_data directly
+        files_to_sync = config_data.get('filesToSync', '') if config_data else ''
+        
+        # If not found at root level, check inside github section
+        if not files_to_sync and config_data and 'github' in config_data:
+            files_to_sync = config_data['github'].get('filesToSync', '')
+        
+        print(f"Files to sync from config: '{files_to_sync}'")
+        
+        # If no files configured, use default list
         if not files_to_sync:
-            raise HTTPException(
-                status_code=400,
-                detail="No files specified to sync. Please configure 'Files to Backup' in GitHub integration settings."
-            )
+            files_to_sync = """app_data/config/app_config.json
+app_data/config/accounts.json
+app_data/config/component_list.json
+app_data/config/data.json
+app_data/logs/app_log.log
+app_data/logs/predictions.log"""
+            print(f"Using default files list: {files_to_sync}")
 
         # Try to get GitHub config from config.json first
         github_config = get_github_config()
+        print(f"GitHub config found: {github_config is not None}")
         
         if github_config:
+            print(f"GitHub config details: repo={github_config.get('repositoryUrl', 'NOT_SET')}, branch={github_config.get('branchName', 'NOT_SET')}")
+            
             # Get the local path where the app runs
             base_path = github_config.get("localPath", ".")
             if base_path == ".":
                 base_path = os.getcwd()
             
+            print(f"Base path: {base_path}")
+            
             # Create isolated git repository with only specified files
             temp_dir = None
             try:
+                print("Creating isolated git repository...")
                 temp_dir, file_list = create_isolated_git_repo(
                     files_to_sync, base_path, github_config["repositoryUrl"], 
                     github_config["branchName"], github_config["githubUsername"], 
                     github_config["githubToken"]
                 )
+                print(f"Temp directory created: {temp_dir}")
+                print(f"Files copied: {file_list}")
                 
                 # Try to fetch and pull from remote
+                print("Fetching from remote...")
                 fetch_result = run_git_command(["git", "fetch", "origin", github_config["branchName"]], temp_dir)
+                print(f"Git fetch result: {fetch_result}")
+                
                 if not fetch_result["success"]:
-                    print(f"Fetch failed (might be new repo): {fetch_result['output']}")
+                    print(f"Fetch failed (might be new repo): {fetch_result.get('output', fetch_result.get('error', 'Unknown error'))}")
                 
                 # Try to checkout/create the branch
+                print(f"Attempting to checkout branch: {github_config['branchName']}")
                 checkout_result = run_git_command(["git", "checkout", "-B", github_config["branchName"], f"origin/{github_config['branchName']}"], temp_dir)
+                print(f"Git checkout result: {checkout_result}")
+                
                 if not checkout_result["success"]:
-                    run_git_command(["git", "checkout", "-b", github_config["branchName"]], temp_dir)
+                    print("Checkout failed, trying to create new branch...")
+                    create_branch_result = run_git_command(["git", "checkout", "-b", github_config["branchName"]], temp_dir)
+                    print(f"Create branch result: {create_branch_result}")
                 
                 # Sync files back to source directory
+                print("Syncing files back to source...")
                 sync_files_back_to_source(temp_dir, file_list, base_path)
                 
                 result_output = f"Successfully pulled {len(file_list)} files from {github_config['repositoryUrl']}:{github_config['branchName']}"
+                print(f"Success: {result_output}")
                 
                 return {
                     "success": True,
@@ -1355,12 +1388,17 @@ def git_pull(request: Optional[GitRequest] = None):
                     "message": "Git pull completed using configuration from config.json"
                 }
                 
+            except Exception as temp_error:
+                print(f"Error in temp repo creation/operations: {str(temp_error)}")
+                raise temp_error
             finally:
                 # Clean up temp directory
                 if temp_dir and os.path.exists(temp_dir):
+                    print(f"Cleaning up temp directory: {temp_dir}")
                     shutil.rmtree(temp_dir, ignore_errors=True)
         
         elif request:
+            print("Using request parameters instead of config")
             # Fallback to provided parameters
             base_path = request.local_path or "."
             if base_path == ".":
@@ -1376,10 +1414,11 @@ def git_pull(request: Optional[GitRequest] = None):
                 
                 fetch_result = run_git_command(["git", "fetch", "origin", request.branch_name], temp_dir)
                 if not fetch_result["success"]:
-                    print(f"Fetch failed (might be new repo): {fetch_result['output']}")
+                    print(f"Fetch failed (might be new repo): {fetch_result.get('output', fetch_result.get('error', 'Unknown error'))}")
                 
                 checkout_result = run_git_command(["git", "checkout", "-B", request.branch_name, f"origin/{request.branch_name}"], temp_dir)
                 if not checkout_result["success"]:
+                    print("Checkout failed, creating new branch...")
                     run_git_command(["git", "checkout", "-b", request.branch_name], temp_dir)
                 
                 sync_files_back_to_source(temp_dir, file_list, base_path)
@@ -1398,15 +1437,20 @@ def git_pull(request: Optional[GitRequest] = None):
                     shutil.rmtree(temp_dir, ignore_errors=True)
         
         else:
+            error_msg = "No GitHub configuration found in config.json and no parameters provided. Please configure GitHub settings first."
+            print(f"Error: {error_msg}")
             raise HTTPException(
-                status_code=400, 
-                detail="No GitHub configuration found in config.json and no parameters provided. Please configure GitHub settings first."
+                status_code=400,
+                detail=error_msg
             )
     
-    except HTTPException:
-        raise
+    except HTTPException as he:
+        print(f"HTTP Exception: {he.detail}")
+        raise he
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Git pull error: {str(e)}")
+        error_msg = f"Git pull error: {str(e)}"
+        print(f"General Exception: {error_msg}")
+        raise HTTPException(status_code=500, detail=error_msg)
 
 @app.post("/api/git/push")
 def git_push(request: Optional[GitRequest] = None):
