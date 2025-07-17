@@ -1453,6 +1453,14 @@ app_data/logs/predictions.log"""
                 print(f"Temp directory created: {temp_dir}")
                 print(f"Files copied: {file_list}")
                 
+                # First, remove the local files to avoid conflicts
+                print("Removing local files from temp directory to avoid conflicts...")
+                for file_path in file_list:
+                    temp_file = os.path.join(temp_dir, file_path)
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                        print(f"Removed local file: {temp_file}")
+                
                 # Try to fetch and pull from remote
                 print("Fetching from remote...")
                 fetch_result = run_git_command(["git", "fetch", "origin", github_config["branchName"]], temp_dir)
@@ -1461,15 +1469,39 @@ app_data/logs/predictions.log"""
                 if not fetch_result["success"]:
                     print(f"Fetch failed (might be new repo): {fetch_result.get('output', fetch_result.get('error', 'Unknown error'))}")
                 
-                # Try to checkout/create the branch
-                print(f"Attempting to checkout branch: {github_config['branchName']}")
-                checkout_result = run_git_command(["git", "checkout", "-B", github_config["branchName"], f"origin/{github_config['branchName']}"], temp_dir)
-                print(f"Git checkout result: {checkout_result}")
+                # Check if remote branch exists
+                print("Checking if remote branch exists...")
+                branch_check_result = run_git_command(["git", "ls-remote", "--heads", "origin", github_config["branchName"]], temp_dir)
+                print(f"Branch check result: {branch_check_result}")
                 
-                if not checkout_result["success"]:
-                    print("Checkout failed, trying to create new branch...")
-                    create_branch_result = run_git_command(["git", "checkout", "-b", github_config["branchName"]], temp_dir)
-                    print(f"Create branch result: {create_branch_result}")
+                if branch_check_result["success"] and branch_check_result["output"].strip():
+                    # Remote branch exists, checkout and pull from it
+                    print(f"Remote branch exists, checking out: {github_config['branchName']}")
+                    checkout_result = run_git_command(["git", "checkout", "-b", github_config["branchName"], f"origin/{github_config['branchName']}"], temp_dir)
+                    print(f"Git checkout result: {checkout_result}")
+                    
+                    if not checkout_result["success"]:
+                        return {
+                            "success": False,
+                            "message": f"Failed to checkout remote branch: {checkout_result['error']}"
+                        }
+                    
+                    # Verify we have the remote files
+                    print("Verifying remote files were downloaded...")
+                    for file_path in file_list:
+                        temp_file = os.path.join(temp_dir, file_path)
+                        if os.path.exists(temp_file):
+                            file_stat = os.stat(temp_file)
+                            print(f"✅ Remote file exists: {file_path} ({file_stat.st_size} bytes)")
+                        else:
+                            print(f"⚠️  Remote file missing: {file_path}")
+                else:
+                    # Remote branch doesn't exist
+                    print(f"Remote branch '{github_config['branchName']}' does not exist")
+                    return {
+                        "success": False,
+                        "message": f"Remote branch '{github_config['branchName']}' does not exist. Use git push first to create it."
+                    }
                 
                 # Sync files back to source directory
                 print("Syncing files back to source...")
