@@ -298,6 +298,18 @@ function AppContent() {
     }
   }, [appInitialized, checkConfigExists, loadConfig]);
 
+  // Handle navigation when user is not logged in
+  useEffect(() => {
+    if (!authLoading && !isLoggedIn && appInitialized) {
+      const currentPath = location.pathname;
+      const publicRoutes = ['/help', '/login'];
+      
+      if (!publicRoutes.includes(currentPath)) {
+        navigate('/login');
+      }
+    }
+  }, [isLoggedIn, authLoading, appInitialized, location.pathname, navigate]);
+
   // Show loading screen while initializing
   if (!appInitialized || configLoading || authLoading) {
     return <LoadingScreen />;
@@ -392,8 +404,7 @@ function AppContent() {
       return null; // Let the public route render
     }
     
-    // Redirect to login page for protected routes
-    navigate('/login');
+    // Navigation is now handled by useEffect to avoid setState during render
     return null;
   }
 
