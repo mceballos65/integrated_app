@@ -1231,17 +1231,25 @@ def create_isolated_git_repo(files_to_sync, base_path, repo_url, branch_name, gi
             else:
                 clean_file_path = file_path
             
-            # If the file path already starts with the base path directory name, don't duplicate it
-            if clean_file_path.startswith('app_data/') and base_path.endswith('app_data/'):
-                # Remove the app_data/ prefix since base_path already includes it
-                relative_file_path = clean_file_path[9:]  # Remove "app_data/" prefix
-                source_file = os.path.join(base_path, relative_file_path)
+            # Determine the correct source file path
+            # The key is that base_path should be the project root, and files are relative to that
+            if base_path == "." or base_path == os.getcwd():
+                # We're in the project root directory
+                project_root = os.getcwd()
             else:
-                source_file = os.path.join(base_path, clean_file_path) if not os.path.isabs(clean_file_path) else clean_file_path
+                # base_path might be configured to a specific directory
+                # If it points to app_data specifically, go up one level
+                if os.path.basename(base_path.rstrip('/\\')) == 'app_data':
+                    project_root = os.path.dirname(base_path.rstrip('/\\'))
+                else:
+                    project_root = base_path
             
+            source_file = os.path.join(project_root, clean_file_path)
             dest_file = os.path.join(temp_dir, clean_file_path)
             
+            print(f"Project root: {project_root}")
             print(f"Checking file: {source_file}")
+            
             if os.path.exists(source_file):
                 # Create directory structure if needed
                 dest_dir = os.path.dirname(dest_file)
@@ -1286,20 +1294,52 @@ def create_isolated_git_repo(files_to_sync, base_path, repo_url, branch_name, gi
 
 def sync_files_back_to_source(temp_dir, file_list, base_path):
     """Copy files from temp repo back to source directory after pull"""
+    print(f"=== Syncing files back to source ===")
+    print(f"Base path: {base_path}")
+    print(f"File list: {file_list}")
+    
     for file_path in file_list:
         if file_path.startswith('./'):
             clean_file_path = file_path[2:]
         else:
             clean_file_path = file_path
         
+        # Source file in temp directory
         source_file = os.path.join(temp_dir, clean_file_path)
-        dest_file = os.path.join(base_path, clean_file_path) if not os.path.isabs(clean_file_path) else clean_file_path
+        
+        # For destination, we need to handle the path correctly
+        # The key insight: base_path should be the root of the project, not app_data specifically
+        # So if we have app_data/config/file.json, we want to put it relative to project root
+        
+        # Determine the project root directory
+        if base_path == "." or base_path == os.getcwd():
+            # We're in the project root directory
+            project_root = os.getcwd()
+        else:
+            # base_path might be configured to a specific directory
+            # If it points to app_data specifically, go up one level
+            if os.path.basename(base_path.rstrip('/\\')) == 'app_data':
+                project_root = os.path.dirname(base_path.rstrip('/\\'))
+            else:
+                project_root = base_path
+        
+        # Destination file should be relative to project root
+        dest_file = os.path.join(project_root, clean_file_path)
+        
+        print(f"Project root: {project_root}")
+        print(f"Attempting to sync: {source_file} -> {dest_file}")
         
         if os.path.exists(source_file):
             # Create directory structure if needed
-            os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+            dest_dir = os.path.dirname(dest_file)
+            if dest_dir:
+                os.makedirs(dest_dir, exist_ok=True)
+                print(f"Created directory: {dest_dir}")
+            
             shutil.copy2(source_file, dest_file)
-            print(f"Synced {source_file} back to {dest_file}")
+            print(f"Successfully synced {source_file} to {dest_file}")
+        else:
+            print(f"Warning: Source file {source_file} does not exist, skipping...")
 
 @app.post("/api/git/pull")
 def git_pull(request: Optional[GitRequest] = None):
