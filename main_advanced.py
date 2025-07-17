@@ -221,14 +221,21 @@ def save_config(config_data):
 
 def get_github_config():
     """Get GitHub configuration for git operations"""
+    print("=== Getting GitHub Config ===")
     config = load_config()
+    print(f"Main config loaded: {config is not None}")
+    
     if not config or not config.get("github"):
+        print(f"No github config found. Config exists: {config is not None}, Has github key: {config.get('github') is not None if config else False}")
         return None
     
     github_config = config["github"].copy()
+    print(f"GitHub config from file: {list(github_config.keys())}")
     
     # Get the encrypted token from secure storage
     encrypted_token = get_github_token()
+    print(f"Encrypted token retrieved: {encrypted_token is not None}")
+    
     if not encrypted_token:
         print("No GitHub token found in encrypted storage")
         return None
@@ -238,11 +245,17 @@ def get_github_config():
     
     # Validate required fields
     required_fields = ["githubToken", "githubUsername", "repositoryUrl", "branchName", "localPath"]
+    missing_fields = []
     for field in required_fields:
         if not github_config.get(field):
+            missing_fields.append(field)
             print(f"Missing required GitHub config field: {field}")
-            return None
     
+    if missing_fields:
+        print(f"Missing fields: {missing_fields}")
+        return None
+    
+    print(f"GitHub config validation passed. All required fields present.")
     return github_config
 
 @app.post("/api/predict")
@@ -1196,14 +1209,22 @@ def create_isolated_git_repo(files_to_sync, base_path, repo_url, branch_name, gi
     import tempfile
     import shutil
     
+    print(f"Creating isolated repo with files: {files_to_sync}")
+    print(f"Base path: {base_path}")
+    print(f"Repo URL: {repo_url}")
+    print(f"Branch: {branch_name}")
+    
     # Create temporary directory
     temp_dir = tempfile.mkdtemp(prefix="git_sync_")
+    print(f"Created temp directory: {temp_dir}")
     
     try:
         # Parse the files list
         file_list = [f.strip() for f in files_to_sync.split('\n') if f.strip()]
+        print(f"Parsed file list: {file_list}")
         
         # Copy only the specified files to temp directory, maintaining directory structure
+        copied_files = []
         for file_path in file_list:
             if file_path.startswith('./'):
                 clean_file_path = file_path[2:]
@@ -1213,28 +1234,45 @@ def create_isolated_git_repo(files_to_sync, base_path, repo_url, branch_name, gi
             source_file = os.path.join(base_path, clean_file_path) if not os.path.isabs(clean_file_path) else clean_file_path
             dest_file = os.path.join(temp_dir, clean_file_path)
             
+            print(f"Checking file: {source_file}")
             if os.path.exists(source_file):
                 # Create directory structure if needed
-                os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+                dest_dir = os.path.dirname(dest_file)
+                if dest_dir:
+                    os.makedirs(dest_dir, exist_ok=True)
+                    print(f"Created directory: {dest_dir}")
+                
                 shutil.copy2(source_file, dest_file)
+                copied_files.append(clean_file_path)
                 print(f"Copied {source_file} to {dest_file}")
             else:
                 print(f"Warning: File {source_file} does not exist, skipping...")
         
+        print(f"Total files copied: {len(copied_files)}")
+        
         # Initialize git repo in temp directory
-        run_git_command(["git", "init"], temp_dir)
-        run_git_command(["git", "config", "user.name", github_username], temp_dir)
-        run_git_command(["git", "config", "user.email", f"{github_username}@users.noreply.github.com"], temp_dir)
+        print("Initializing git repository...")
+        init_result = run_git_command(["git", "init"], temp_dir)
+        print(f"Git init result: {init_result}")
+        
+        print("Setting git config...")
+        config_name_result = run_git_command(["git", "config", "user.name", github_username], temp_dir)
+        config_email_result = run_git_command(["git", "config", "user.email", f"{github_username}@users.noreply.github.com"], temp_dir)
+        print(f"Git config name result: {config_name_result}")
+        print(f"Git config email result: {config_email_result}")
         
         # Set up remote with authentication
         repo_url_with_auth = repo_url.replace(
             "https://", f"https://{github_username}:{github_token}@"
         )
-        run_git_command(["git", "remote", "add", "origin", repo_url_with_auth], temp_dir)
+        print("Setting up remote...")
+        remote_result = run_git_command(["git", "remote", "add", "origin", repo_url_with_auth], temp_dir)
+        print(f"Git remote add result: {remote_result}")
         
-        return temp_dir, file_list
+        return temp_dir, copied_files
         
     except Exception as e:
+        print(f"Error in create_isolated_git_repo: {str(e)}")
         # Clean up on error
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise e
@@ -1367,49 +1405,77 @@ def git_pull(request: Optional[GitRequest] = None):
 def git_push(request: Optional[GitRequest] = None):
     """Git push using configuration from config.json with specific files only"""
     try:
+        print("=== Starting Git Push ===")
+        
         # Get config data including files to sync
         config_data = load_config()
-        files_to_sync = config_data.get('filesToSync', '')
+        print(f"Config data loaded: {config_data.keys() if config_data else 'None'}")
         
+        files_to_sync = config_data.get('filesToSync', '') if config_data else ''
+        print(f"Files to sync from config: '{files_to_sync}'")
+        
+        # If no files configured, use default list
         if not files_to_sync:
-            raise HTTPException(
-                status_code=400,
-                detail="No files specified to sync. Please configure 'Files to Backup' in GitHub integration settings."
-            )
+            files_to_sync = """app_data/config/app_config.json
+app_data/config/accounts.json
+app_data/config/component_list.json
+app_data/config/data.json
+app_data/logs/app_log.log
+app_data/logs/predictions.log"""
+            print(f"Using default files list: {files_to_sync}")
 
         # Try to get GitHub config from config.json first
         github_config = get_github_config()
+        print(f"GitHub config found: {github_config is not None}")
         
         if github_config:
+            print(f"GitHub config details: repo={github_config.get('repositoryUrl', 'NOT_SET')}, branch={github_config.get('branchName', 'NOT_SET')}")
+            
             # Get the local path where the app runs
             base_path = github_config.get("localPath", ".")
             if base_path == ".":
                 base_path = os.getcwd()
             
+            print(f"Base path: {base_path}")
+            
             # Create isolated git repository with only specified files
             temp_dir = None
             try:
+                print("Creating isolated git repository...")
                 temp_dir, file_list = create_isolated_git_repo(
                     files_to_sync, base_path, github_config["repositoryUrl"], 
                     github_config["branchName"], github_config["githubUsername"], 
                     github_config["githubToken"]
                 )
+                print(f"Temp directory created: {temp_dir}")
+                print(f"Files to process: {file_list}")
                 
                 # Add all files in the temp directory
-                run_git_command(["git", "add", "."], temp_dir)
+                print("Adding files to git...")
+                add_result = run_git_command(["git", "add", "."], temp_dir)
+                print(f"Git add result: {add_result}")
                 
                 # Commit changes
+                print("Committing changes...")
                 commit_result = run_git_command(["git", "commit", "-m", "Automated commit from web app"], temp_dir)
+                print(f"Git commit result: {commit_result}")
+                
                 if not commit_result["success"] and "nothing to commit" not in commit_result["output"].lower():
                     print(f"Commit warning: {commit_result['output']}")
                 
                 # Push to remote
+                print("Pushing to remote...")
                 push_result = run_git_command(["git", "push", "origin", github_config["branchName"]], temp_dir)
+                print(f"Git push result: {push_result}")
+                
                 if not push_result["success"]:
                     # Try to set upstream and push
-                    run_git_command(["git", "push", "--set-upstream", "origin", github_config["branchName"]], temp_dir)
+                    print("Trying to set upstream and push...")
+                    upstream_result = run_git_command(["git", "push", "--set-upstream", "origin", github_config["branchName"]], temp_dir)
+                    print(f"Git push upstream result: {upstream_result}")
                 
                 result_output = f"Successfully pushed {len(file_list)} files to {github_config['repositoryUrl']}:{github_config['branchName']}"
+                print(f"Success: {result_output}")
                 
                 return {
                     "success": True,
@@ -1418,12 +1484,17 @@ def git_push(request: Optional[GitRequest] = None):
                     "message": "Git push completed using configuration from config.json"
                 }
                 
+            except Exception as temp_error:
+                print(f"Error in temp repo creation/operations: {str(temp_error)}")
+                raise temp_error
             finally:
                 # Clean up temp directory
                 if temp_dir and os.path.exists(temp_dir):
+                    print(f"Cleaning up temp directory: {temp_dir}")
                     shutil.rmtree(temp_dir, ignore_errors=True)
         
         elif request:
+            print("Using request parameters instead of config")
             # Fallback to provided parameters
             base_path = request.local_path or "."
             if base_path == ".":
@@ -1464,15 +1535,20 @@ def git_push(request: Optional[GitRequest] = None):
                     shutil.rmtree(temp_dir, ignore_errors=True)
         
         else:
+            error_msg = "No GitHub configuration found in config.json and no parameters provided. Please configure GitHub settings first."
+            print(f"Error: {error_msg}")
             raise HTTPException(
                 status_code=400,
-                detail="No GitHub configuration found in config.json and no parameters provided. Please configure GitHub settings first."
+                detail=error_msg
             )
     
-    except HTTPException:
-        raise
+    except HTTPException as he:
+        print(f"HTTP Exception: {he.detail}")
+        raise he
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Git push error: {str(e)}")
+        error_msg = f"Git push error: {str(e)}"
+        print(f"General Exception: {error_msg}")
+        raise HTTPException(status_code=500, detail=error_msg)
 
 # Endpoint: User system health check
 @app.get("/api/health")
