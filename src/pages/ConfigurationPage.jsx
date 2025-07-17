@@ -802,7 +802,7 @@ export default function ConfigurationPage() {
   };
 
   const handleGitAction = async (action) => {
-    const endpoint = action === "pull" ? "/git/pull" : "/git/push";
+    const endpoint = action === "pull" ? "/api/git/pull" : "/api/git/push";
     appLogger.info('GIT_ACTION', `Attempting git ${action}`, { endpoint });
     
     // Clear any previous branch errors
@@ -874,7 +874,7 @@ export default function ConfigurationPage() {
     
     try {
       // Call backend to create the branch
-      const res = await fetch('/git/create-branch', {
+      const res = await fetch('/api/git/create-branch', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ branchName })
