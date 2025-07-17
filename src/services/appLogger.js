@@ -45,7 +45,8 @@ class AppLogger {
       
       try {
         const backendUrl = getBackendUrl();
-        if (backendUrl) {
+        // Note: backendUrl can be empty string for relative URLs in development
+        if (backendUrl !== null && backendUrl !== undefined) {
           await fetch(`${backendUrl}/api/logs/app`, {
             method: 'POST',
             headers: {

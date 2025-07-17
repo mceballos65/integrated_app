@@ -331,7 +331,8 @@ export default function LogsPage() {
   // Load prediction logs
   const loadPredictionLogs = async () => {
     const backendUrl = getBackendUrl();
-    if (!backendUrl) {
+    // Note: backendUrl can be empty string for relative URLs in development
+    if (backendUrl === null || backendUrl === undefined) {
       showStatusMessage("Backend URL not configured");
       return;
     }
@@ -368,7 +369,8 @@ export default function LogsPage() {
   // Load application logs from backend
   const loadApplicationLogs = async () => {
     const backendUrl = getBackendUrl();
-    if (!backendUrl) {
+    // Note: backendUrl can be empty string for relative URLs in development
+    if (backendUrl === null || backendUrl === undefined) {
       showStatusMessage("Backend URL not configured");
       return;
     }
