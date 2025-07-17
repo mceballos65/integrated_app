@@ -1418,7 +1418,13 @@ def git_push(request: Optional[GitRequest] = None):
         config_data = load_config()
         print(f"Config data loaded: {config_data.keys() if config_data else 'None'}")
         
+        # First try to get filesToSync from config_data directly
         files_to_sync = config_data.get('filesToSync', '') if config_data else ''
+        
+        # If not found at root level, check inside github section
+        if not files_to_sync and config_data and 'github' in config_data:
+            files_to_sync = config_data['github'].get('filesToSync', '')
+        
         print(f"Files to sync from config: '{files_to_sync}'")
         
         # If no files configured, use default list
@@ -1476,21 +1482,50 @@ app_data/logs/predictions.log"""
                     else:
                         print("No changes to commit - this is normal")
                 
-                # Push to remote
+                # Check if the branch exists remotely first
+                print("Checking if remote branch exists...")
+                fetch_result = run_git_command(["git", "fetch", "origin"], temp_dir)
+                print(f"Git fetch result: {fetch_result}")
+                
+                # Try to checkout the existing remote branch or create a new one
+                print(f"Attempting to checkout or create branch: {github_config['branchName']}")
+                checkout_result = run_git_command(["git", "checkout", "-B", github_config["branchName"]], temp_dir)
+                print(f"Git checkout -B result: {checkout_result}")
+                
+                if not checkout_result["success"]:
+                    print(f"Failed to create/checkout branch: {checkout_result}")
+                    # Continue anyway - we're already on the default branch
+                
+                # Push to remote - try normal push first
                 print("Pushing to remote...")
                 push_result = run_git_command(["git", "push", "origin", github_config["branchName"]], temp_dir)
                 print(f"Git push result: {push_result}")
                 
                 if not push_result["success"]:
-                    # Try to set upstream and push
-                    print("Trying to set upstream and push...")
+                    # If normal push fails, try with --set-upstream to create new branch
+                    print("Normal push failed, trying to create new branch with --set-upstream...")
                     upstream_result = run_git_command(["git", "push", "--set-upstream", "origin", github_config["branchName"]], temp_dir)
-                    print(f"Git push upstream result: {upstream_result}")
+                    print(f"Git push --set-upstream result: {upstream_result}")
                     
-                    # If upstream push also fails, check the error
+                    # If upstream push also fails, try pushing current branch to remote
                     if not upstream_result["success"]:
-                        push_error = upstream_result.get("output", upstream_result.get("error", "Unknown push error"))
-                        raise Exception(f"Git push failed: {push_error}")
+                        print("Upstream push failed, trying to push current branch...")
+                        # Get current branch name
+                        branch_result = run_git_command(["git", "branch", "--show-current"], temp_dir)
+                        if branch_result["success"]:
+                            current_branch = branch_result["output"].strip()
+                            print(f"Current branch: {current_branch}")
+                            
+                            # Try to push current branch to target branch
+                            force_push_result = run_git_command(["git", "push", "origin", f"{current_branch}:{github_config['branchName']}"], temp_dir)
+                            print(f"Git push current:target result: {force_push_result}")
+                            
+                            if not force_push_result["success"]:
+                                push_error = force_push_result.get("output", force_push_result.get("error", "Unknown push error"))
+                                raise Exception(f"All push attempts failed. Last error: {push_error}")
+                        else:
+                            push_error = upstream_result.get("output", upstream_result.get("error", "Unknown push error"))
+                            raise Exception(f"Git push failed: {push_error}")
                 
                 result_output = f"Successfully pushed {len(copied_files)} files to {github_config['repositoryUrl']}:{github_config['branchName']}"
                 print(f"Success: {result_output}")
