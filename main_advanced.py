@@ -1144,6 +1144,7 @@ class GitRequest(BaseModel):
     repository_url: str
     branch_name: str
     local_path: str
+    files_to_sync: str = ""  # Optional field with default empty string
 
 def run_git_command(commands, cwd):
     try:
@@ -1158,6 +1159,35 @@ def run_git_command(commands, cwd):
         return {"success": True, "output": result.stdout}
     except subprocess.CalledProcessError as e:
         return {"success": False, "error": e.stderr}
+
+def add_specific_files_to_git(files_to_sync, base_path):
+    """Add specific files to git instead of adding all files"""
+    if not files_to_sync:
+        # Fallback to adding all files if no specific files are configured
+        return run_git_command(["git", "add", "."], base_path)
+    
+    # Parse the files list (one file per line)
+    file_list = [f.strip() for f in files_to_sync.split('\n') if f.strip()]
+    
+    # Add each file individually
+    for file_path in file_list:
+        # Convert relative path to absolute path based on the base_path
+        if file_path.startswith('./'):
+            # Remove the ./ prefix since we're already in the right directory context
+            clean_file_path = file_path[2:]
+        else:
+            clean_file_path = file_path
+        
+        # Check if file exists before trying to add it
+        full_file_path = os.path.join(base_path, clean_file_path) if not os.path.isabs(clean_file_path) else clean_file_path
+        if os.path.exists(full_file_path):
+            result = run_git_command(["git", "add", clean_file_path], base_path)
+            if not result["success"]:
+                return result
+        else:
+            print(f"Warning: File {full_file_path} does not exist, skipping...")
+    
+    return {"success": True, "output": f"Added {len(file_list)} specific files to git"}
 
 @app.post("/api/git/pull")
 def git_pull(request: Optional[GitRequest] = None):
@@ -1224,7 +1254,13 @@ def git_push(request: Optional[GitRequest] = None):
             
             run_git_command(["git", "remote", "set-url", "origin", repo_url_with_auth], github_config["localPath"])
             run_git_command(["git", "checkout", github_config["branchName"]], github_config["localPath"])
-            run_git_command(["git", "add", "."], github_config["localPath"])
+            
+            # Use specific files if configured, otherwise add all files
+            files_to_sync = github_config.get("filesToSync", "")
+            add_result = add_specific_files_to_git(files_to_sync, github_config["localPath"])
+            if not add_result["success"]:
+                raise HTTPException(status_code=500, detail=f"Failed to add files: {add_result['error']}")
+            
             run_git_command(["git", "commit", "-m", "Automated commit from web app"], github_config["localPath"])
             result = run_git_command(["git", "push", "origin", github_config["branchName"]], github_config["localPath"])
             
@@ -1242,7 +1278,13 @@ def git_push(request: Optional[GitRequest] = None):
 
             run_git_command(["git", "remote", "set-url", "origin", repo_url_with_auth], request.local_path)
             run_git_command(["git", "checkout", request.branch_name], request.local_path)
-            run_git_command(["git", "add", "."], request.local_path)
+            
+            # Use specific files if configured in the request, otherwise add all files
+            files_to_sync = request.files_to_sync if hasattr(request, 'files_to_sync') else ""
+            add_result = add_specific_files_to_git(files_to_sync, request.local_path)
+            if not add_result["success"]:
+                raise HTTPException(status_code=500, detail=f"Failed to add files: {add_result['error']}")
+            
             run_git_command(["git", "commit", "-m", "Automated commit from web app"], request.local_path)
             result = run_git_command(["git", "push", "origin", request.branch_name], request.local_path)
             

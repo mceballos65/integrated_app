@@ -20,6 +20,8 @@ function GitHubConfigPanel({
   setLocalBranchName, 
   localPath, 
   setLocalPath, 
+  localFilesToSync,
+  setLocalFilesToSync,
   handleGitAction, 
   gitStatus, 
   gitPushLoading, 
@@ -143,6 +145,11 @@ function GitHubConfigPanel({
       return;
     }
 
+    if (!localFilesToSync.trim()) {
+      showStatusMessage('Files to backup list cannot be empty', true);
+      return;
+    }
+
     setSavingAdvancedSettings(true);
     try {
       const response = await fetch('/api/config/update', {
@@ -152,7 +159,8 @@ function GitHubConfigPanel({
           github: {
             branchName: localBranchName.trim(),
             localPath: localPath.trim(),
-            repositoryUrl: localRepositoryUrl.trim()
+            repositoryUrl: localRepositoryUrl.trim(),
+            filesToSync: localFilesToSync.trim()
           }
         })
       });
@@ -163,7 +171,8 @@ function GitHubConfigPanel({
         appLogger.success('GITHUB_CONFIG', 'Advanced GitHub settings saved', { 
           branchName: localBranchName.trim(), 
           localPath: localPath.trim(),
-          repositoryUrl: localRepositoryUrl.trim()
+          repositoryUrl: localRepositoryUrl.trim(),
+          filesToSync: localFilesToSync.trim()
         });
       } else {
         const errorData = await response.json();
@@ -329,10 +338,24 @@ function GitHubConfigPanel({
           </p>
         </div>
 
+        {/* Files to Sync */}
+        <div className="mb-4">
+          <label className="block font-semibold mb-1">Files to Backup</label>
+          <textarea
+            value={localFilesToSync}
+            onChange={(e) => setLocalFilesToSync(e.target.value)}
+            className="w-full border border-gray-300 rounded px-3 py-2 h-32 font-mono text-sm"
+            placeholder="./app_data/config/app_config.json&#10;./app_data/config/accounts.json&#10;./app_data/config/component_list.json"
+          />
+          <p className="text-sm text-gray-600 mt-1">
+            List of specific files to backup/sync (one per line). Only these files will be pushed/pulled to/from the repository.
+          </p>
+        </div>
+
         {/* Save Advanced Settings Button */}
         <button
           onClick={handleSaveAdvancedSettings}
-          disabled={savingAdvancedSettings || !localBranchName.trim() || !localPath.trim() || !localRepositoryUrl.trim()}
+          disabled={savingAdvancedSettings || !localBranchName.trim() || !localPath.trim() || !localRepositoryUrl.trim() || !localFilesToSync.trim()}
           className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
         >
           {savingAdvancedSettings ? (
@@ -474,6 +497,7 @@ export default function ConfigurationPage() {
   const [localRepositoryUrl, setLocalRepositoryUrl] = useState("");
   const [localBranchName, setLocalBranchName] = useState("");
   const [localPath, setLocalPath] = useState("");
+  const [localFilesToSync, setLocalFilesToSync] = useState("");
   const [gitStatus, setGitStatus] = useState("");
   const [localBackendUrl, setLocalBackendUrl] = useState("");
   
@@ -618,6 +642,12 @@ export default function ConfigurationPage() {
       const directGithubRepoUrl = config?.github?.repositoryUrl || "";
       const directGithubBranch = config?.github?.branchName || "main";
       const directLocalPath = config?.github?.localPath || "./app_data/config";
+      const directFilesToSync = config?.github?.filesToSync || `./app_data/config/app_config.json
+./app_data/config/accounts.json
+./app_data/config/component_list.json
+./app_data/config/data.json
+./app_data/logs/app_log.log
+./app_data/logs/predictions.log`;
       const directDebugRequiresAuth = config?.security?.debug_requires_auth || false;
       
       // Actualizar localStorage para mantener consistencia
@@ -641,6 +671,7 @@ export default function ConfigurationPage() {
       setLocalRepositoryUrl(directGithubRepoUrl);
       setLocalBranchName(directGithubBranch);
       setLocalPath(directLocalPath);
+      setLocalFilesToSync(directFilesToSync);
       
       // Sincronizar los estados de edición entre localStorage y el backend
       const localEditedConfigs = localStorage.getItem('kyndryl_edited_configs');
@@ -1206,6 +1237,8 @@ export default function ConfigurationPage() {
             setLocalBranchName={setLocalBranchName}
             localPath={localPath}
             setLocalPath={setLocalPath}
+            localFilesToSync={localFilesToSync}
+            setLocalFilesToSync={setLocalFilesToSync}
             handleGitAction={handleGitAction}
             gitStatus={gitStatus}
             gitPushLoading={gitPushLoading}
