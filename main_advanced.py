@@ -201,130 +201,6 @@ def apply_environment_config(env_config):
     
     print("=== Environment Configuration Applied ===")
 
-def perform_auto_pull():
-    """Perform automatic git pull on startup if configuration is available"""
-    try:
-        github_config = get_github_config()
-        if not github_config:
-            return {"success": False, "message": "GitHub configuration not available"}
-        
-        print(f"Auto-pull from: {github_config['repositoryUrl']} (branch: {github_config['branchName']})")
-        
-        # Use the existing git_pull logic but without showing detailed logs
-        config_data = load_config()
-        files_to_sync = config_data.get('filesToSync', '') if config_data else ''
-        
-        # If not found at root level, check inside github section
-        if not files_to_sync and config_data and 'github' in config_data:
-            files_to_sync = config_data['github'].get('filesToSync', '')
-        
-        # If no files configured, use default list
-        if not files_to_sync:
-            files_to_sync = """app_data/config/app_config.json
-app_data/config/accounts.json
-app_data/config/component_list.json
-app_data/config/data.json
-app_data/logs/app_log.log
-app_data/logs/predictions.log"""
-        
-        base_path = github_config.get("localPath", ".")
-        if base_path == ".":
-            base_path = os.getcwd()
-        
-        # Create isolated git repository with only specified files
-        temp_dir = None
-        try:
-            temp_dir, file_list = create_isolated_git_repo(
-                files_to_sync, base_path, github_config["repositoryUrl"], 
-                github_config["branchName"], github_config["githubUsername"], 
-                github_config["githubToken"]
-            )
-            
-            # Remove local files to avoid conflicts
-            for file_path in file_list:
-                temp_file = os.path.join(temp_dir, file_path)
-                if os.path.exists(temp_file):
-                    os.remove(temp_file)
-            
-            # Try to fetch and pull from remote
-            fetch_result = run_git_command(["git", "fetch", "origin", github_config["branchName"]], temp_dir)
-            
-            if not fetch_result["success"]:
-                return {"success": False, "message": f"Git fetch failed: {fetch_result['error']}"}
-            
-            # Check if remote branch exists and has app_config directory
-            branch_check_result = run_git_command(["git", "ls-remote", "--heads", "origin", github_config["branchName"]], temp_dir)
-            
-            if branch_check_result["success"] and branch_check_result["output"].strip():
-                # Remote branch exists, checkout and check for app_config directory
-                checkout_result = run_git_command(["git", "checkout", "-b", github_config["branchName"], f"origin/{github_config['branchName']}"], temp_dir)
-                
-                if not checkout_result["success"]:
-                    return {"success": False, "message": f"Failed to checkout remote branch: {checkout_result['error']}"}
-                
-                # Check if app_config directory exists in the repository
-                app_config_exists = check_app_config_directory_exists(temp_dir)
-                
-                if not app_config_exists:
-                    return {
-                        "success": False, 
-                        "message": "Repository exists but app_config directory not found. Wizard required.",
-                        "requires_wizard": True
-                    }
-                
-                # Sync files back to source directory
-                sync_files_back_to_source(temp_dir, file_list, base_path)
-                
-                return {
-                    "success": True, 
-                    "message": f"Successfully pulled {len(file_list)} files from {github_config['repositoryUrl']}:{github_config['branchName']}"
-                }
-            else:
-                return {
-                    "success": False, 
-                    "message": f"Remote branch '{github_config['branchName']}' does not exist. Wizard required.",
-                    "requires_wizard": True
-                }
-                
-        finally:
-            if temp_dir and os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir, ignore_errors=True)
-                
-    except Exception as e:
-        return {"success": False, "message": f"Auto-pull error: {str(e)}"}
-
-def check_app_config_directory_exists(temp_dir):
-    """Check if app_config directory exists in the git repository"""
-    try:
-        # List directories in the repository root
-        items = os.listdir(temp_dir)
-        
-        # Check for app_config directory or any directory containing config files
-        for item in items:
-            item_path = os.path.join(temp_dir, item)
-            if os.path.isdir(item_path):
-                if item == 'app_config' or item == 'app_data':
-                    print(f"Found config directory: {item}")
-                    return True
-                    
-                # Also check for config subdirectories
-                if 'config' in item.lower():
-                    print(f"Found config-related directory: {item}")
-                    return True
-        
-        # Check if there are any .json config files in root
-        config_files = [f for f in items if f.endswith('.json') and 'config' in f.lower()]
-        if config_files:
-            print(f"Found config files in root: {config_files}")
-            return True
-            
-        print("No app_config directory or config files found in repository")
-        return False
-        
-    except Exception as e:
-        print(f"Error checking app_config directory: {e}")
-        return False
-
 def needs_wizard():
     """Check if the system needs to show the configuration wizard"""
     try:
@@ -1913,6 +1789,138 @@ def sync_files_back_to_source(temp_dir, file_list, base_path):
                 print(f"  {item_type}: {item}")
     except Exception as e:
         print(f"Error listing directories: {e}")
+
+# ========================================
+# AUTO-PULL FUNCTIONS
+# ========================================
+
+def perform_auto_pull():
+    """Perform automatic git pull on startup if configuration is available"""
+    try:
+        github_config = get_github_config()
+        if not github_config:
+            return {"success": False, "message": "GitHub configuration not available"}
+        
+        print(f"Auto-pull from: {github_config['repositoryUrl']} (branch: {github_config['branchName']})")
+        
+        # Use the existing git_pull logic but without showing detailed logs
+        config_data = load_config()
+        files_to_sync = config_data.get('filesToSync', '') if config_data else ''
+        
+        # If not found at root level, check inside github section
+        if not files_to_sync and config_data and 'github' in config_data:
+            files_to_sync = config_data['github'].get('filesToSync', '')
+        
+        # If no files configured, use default list
+        if not files_to_sync:
+            files_to_sync = """app_data/config/app_config.json
+app_data/config/accounts.json
+app_data/config/component_list.json
+app_data/config/data.json
+app_data/logs/app_log.log
+app_data/logs/predictions.log"""
+        
+        base_path = github_config.get("localPath", ".")
+        if base_path == ".":
+            base_path = os.getcwd()
+        
+        # Create isolated git repository with only specified files
+        temp_dir = None
+        try:
+            temp_dir, file_list = create_isolated_git_repo(
+                files_to_sync, base_path, github_config["repositoryUrl"], 
+                github_config["branchName"], github_config["githubUsername"], 
+                github_config["githubToken"]
+            )
+            
+            # Remove local files to avoid conflicts
+            for file_path in file_list:
+                temp_file = os.path.join(temp_dir, file_path)
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+            
+            # Try to fetch and pull from remote
+            fetch_result = run_git_command(["git", "fetch", "origin", github_config["branchName"]], temp_dir)
+            
+            if not fetch_result["success"]:
+                return {"success": False, "message": f"Git fetch failed: {fetch_result['error']}"}
+            
+            # Check if remote branch exists and has app_config directory
+            branch_check_result = run_git_command(["git", "ls-remote", "--heads", "origin", github_config["branchName"]], temp_dir)
+            
+            if branch_check_result["success"] and branch_check_result["output"].strip():
+                # Remote branch exists, checkout and check for app_config directory
+                checkout_result = run_git_command(["git", "checkout", "-b", github_config["branchName"], f"origin/{github_config['branchName']}"], temp_dir)
+                
+                if not checkout_result["success"]:
+                    return {"success": False, "message": f"Failed to checkout remote branch: {checkout_result['error']}"}
+                
+                # Check if app_config directory exists in the repository
+                app_config_exists = check_app_config_directory_exists(temp_dir)
+                
+                if not app_config_exists:
+                    return {
+                        "success": False, 
+                        "message": "Repository exists but app_config directory not found. Wizard required.",
+                        "requires_wizard": True
+                    }
+                
+                # Sync files back to source directory
+                sync_files_back_to_source(temp_dir, file_list, base_path)
+                
+                return {
+                    "success": True, 
+                    "message": f"Successfully pulled {len(file_list)} files from {github_config['repositoryUrl']}:{github_config['branchName']}"
+                }
+            else:
+                return {
+                    "success": False, 
+                    "message": f"Remote branch '{github_config['branchName']}' does not exist. Wizard required.",
+                    "requires_wizard": True
+                }
+                
+        finally:
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                
+    except Exception as e:
+        return {"success": False, "message": f"Auto-pull error: {str(e)}"}
+
+def check_app_config_directory_exists(temp_dir):
+    """Check if app_config directory exists in the git repository"""
+    try:
+        # List directories in the repository root
+        items = os.listdir(temp_dir)
+        
+        # Check for app_config directory or any directory containing config files
+        for item in items:
+            item_path = os.path.join(temp_dir, item)
+            if os.path.isdir(item_path):
+                if item == 'app_config' or item == 'app_data':
+                    print(f"Found config directory: {item}")
+                    return True
+                    
+                # Also check for config subdirectories
+                if 'config' in item.lower():
+                    print(f"Found config-related directory: {item}")
+                    return True
+        
+        # Check if there are any .json config files in root
+        config_files = [f for f in items if f.endswith('.json') and 'config' in f.lower()]
+        if config_files:
+            print(f"Found config files in root: {config_files}")
+            return True
+            
+        print("No app_config directory or config files found in repository")
+        return False
+        
+    except Exception as e:
+        print(f"Error checking app_config directory: {e}")
+        return False
+
+# ========================================
+# GIT ENDPOINTS
+# ========================================
 
 @app.post("/api/git/pull")
 def git_pull(request: Optional[GitRequest] = None):
