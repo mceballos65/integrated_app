@@ -49,6 +49,174 @@ import config_handler
 
 from config import SIMILARITY_THRESHOLD, ENABLE_LOGGING
 
+# ========================================
+# ENVIRONMENT VARIABLES CONFIGURATION
+# ========================================
+
+def load_environment_config():
+    """Load configuration from environment variables and set up the system accordingly"""
+    print("=== Loading Environment Configuration ===")
+    
+    # Read environment variables
+    env_config = {
+        'git_repo': os.getenv('DX_EXT_CFG_GIT_REPO', ''),
+        'git_token': os.getenv('DX_EXT_CFG_GIT_TOKEN', ''),
+        'git_user': os.getenv('DX_EXT_CFG_GIT_USER', ''),
+        'gui_password': os.getenv('DX_EXT_GUI_PASSWORD', ''),
+        'gui_user': os.getenv('DX_EXT_GUI_USER', ''),
+        'account_code': os.getenv('DX_ENV_OU_GSMA_CODE', '')
+    }
+    
+    print(f"Environment variables found:")
+    for key, value in env_config.items():
+        masked_value = "***SET***" if value else "NOT_SET"
+        print(f"  {key}: {masked_value}")
+    
+    # Check if we have the minimum required configuration
+    has_git_config = all([
+        env_config['git_repo'], 
+        env_config['git_token'], 
+        env_config['git_user']
+    ])
+    
+    has_gui_config = all([
+        env_config['gui_user'], 
+        env_config['gui_password']
+    ])
+    
+    print(f"Configuration status:")
+    print(f"  Git config complete: {has_git_config}")
+    print(f"  GUI config complete: {has_gui_config}")
+    print(f"  Account code set: {bool(env_config['account_code'])}")
+    
+    if has_git_config or has_gui_config or env_config['account_code']:
+        try:
+            apply_environment_config(env_config)
+            return True
+        except Exception as e:
+            print(f"Error applying environment configuration: {e}")
+            return False
+    else:
+        print("No environment configuration found - will show wizard")
+        return False
+
+def apply_environment_config(env_config):
+    """Apply the environment configuration to the system"""
+    print("=== Applying Environment Configuration ===")
+    
+    # Load existing config or create default
+    current_config = load_config() or get_default_config()
+    config_updated = False
+    
+    # Configure GitHub settings if available
+    if env_config['git_repo'] and env_config['git_token'] and env_config['git_user']:
+        print("Configuring GitHub integration...")
+        
+        # Parse repository URL to extract owner/repo and set branch
+        repo_url = env_config['git_repo']
+        if not repo_url.startswith('https://'):
+            repo_url = f"https://github.com/{repo_url}"
+        
+        # Set default branch name based on current branch or main
+        branch_name = "main"  # Default fallback
+        
+        # Update GitHub configuration
+        current_config['github'].update({
+            'githubUsername': env_config['git_user'],
+            'repositoryUrl': repo_url,
+            'branchName': branch_name,
+            'localPath': './app_data/',
+            'filesToSync': '''./app_data/config/app_config.json
+./app_data/config/accounts.json
+./app_data/config/component_list.json
+./app_data/config/data.json
+./app_data/logs/app_log.log
+./app_data/logs/predictions.log'''
+        })
+        
+        # Save GitHub token securely
+        save_github_token(env_config['git_token'])
+        config_updated = True
+        print(f"✅ GitHub configured: {repo_url}")
+    
+    # Configure account code if available
+    if env_config['account_code']:
+        print("Configuring account code...")
+        current_config['app']['account_code'] = env_config['account_code']
+        config_updated = True
+        print(f"✅ Account code configured: {env_config['account_code']}")
+    
+    # Configure GUI user if available
+    if env_config['gui_user'] and env_config['gui_password']:
+        print("Configuring GUI user...")
+        
+        # Check if user already exists
+        existing_user = get_user_by_username(env_config['gui_user'])
+        if existing_user:
+            # Update existing user
+            update_data = {
+                "password_hash": hash_password(env_config['gui_password']),
+                "is_active": True
+            }
+            update_user(env_config['gui_user'], update_data)
+            print(f"✅ Updated existing user: {env_config['gui_user']}")
+        else:
+            # Create new user
+            new_user = {
+                "username": env_config['gui_user'],
+                "password_hash": hash_password(env_config['gui_password']),
+                "is_active": True,
+                "is_default": False,
+                "created_at": datetime.now().isoformat(),
+                "last_login": None,
+                "login_attempts": 0
+            }
+            update_user(env_config['gui_user'], new_user)
+            print(f"✅ Created new user: {env_config['gui_user']}")
+    
+    # Save configuration if updated
+    if config_updated:
+        current_config["last_modified"] = datetime.now().isoformat()
+        current_config["configured_from_env"] = True
+        
+        if save_config(current_config):
+            print("✅ Configuration saved successfully")
+        else:
+            print("❌ Failed to save configuration")
+            raise Exception("Failed to save configuration")
+    
+    print("=== Environment Configuration Applied ===")
+
+def needs_wizard():
+    """Check if the system needs to show the configuration wizard"""
+    try:
+        # First check if we have environment configuration
+        if load_environment_config():
+            return False
+        
+        # Check if configuration exists and is complete
+        if not config_exists():
+            return True
+        
+        config_data = load_config()
+        if not config_data:
+            return True
+        
+        # Check for essential configuration
+        github_config = config_data.get('github', {})
+        has_github_config = all([
+            github_config.get('githubUsername'),
+            github_config.get('repositoryUrl'),
+            github_config.get('branchName'),
+            github_token_exists()
+        ])
+        
+        return not has_github_config
+        
+    except Exception as e:
+        print(f"Error checking wizard requirement: {e}")
+        return True
+
 setup_logging()
 
 app = FastAPI()
@@ -60,6 +228,13 @@ CONFIG_FILE = "app_data/config/app_config.json"
 print("Initializing user management system...")
 initialize_default_users()
 print("User management system ready!")
+
+# Initialize environment configuration
+print("Checking environment configuration...")
+try:
+    load_environment_config()
+except Exception as e:
+    print(f"Warning: Environment configuration failed: {e}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -781,6 +956,85 @@ def check_config():
             "configured": False,
             "config_file_exists": False,
             "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
+
+@app.get("/api/config/wizard-required")
+def check_wizard_required():
+    """Check if the configuration wizard is required"""
+    try:
+        wizard_needed = needs_wizard()
+        
+        # Get environment variable status
+        env_vars = {
+            'DX_EXT_CFG_GIT_REPO': bool(os.getenv('DX_EXT_CFG_GIT_REPO')),
+            'DX_EXT_CFG_GIT_TOKEN': bool(os.getenv('DX_EXT_CFG_GIT_TOKEN')),
+            'DX_EXT_CFG_GIT_USER': bool(os.getenv('DX_EXT_CFG_GIT_USER')),
+            'DX_EXT_GUI_PASSWORD': bool(os.getenv('DX_EXT_GUI_PASSWORD')),
+            'DX_EXT_GUI_USER': bool(os.getenv('DX_EXT_GUI_USER')),
+            'DX_ENV_OU_GSMA_CODE': bool(os.getenv('DX_ENV_OU_GSMA_CODE'))
+        }
+        
+        config_status = {
+            "wizard_required": wizard_needed,
+            "environment_variables": env_vars,
+            "has_env_config": any(env_vars.values()),
+            "config_file_exists": config_exists(),
+            "github_token_exists": github_token_exists(),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        return config_status
+        
+    except Exception as e:
+        return {
+            "wizard_required": True,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
+
+@app.post("/api/config/reload-environment")
+def reload_environment_config():
+    """Force reload configuration from environment variables"""
+    try:
+        print("=== Force Reloading Environment Configuration ===")
+        
+        # Get current environment variables
+        env_vars = {
+            'DX_EXT_CFG_GIT_REPO': os.getenv('DX_EXT_CFG_GIT_REPO', ''),
+            'DX_EXT_CFG_GIT_TOKEN': os.getenv('DX_EXT_CFG_GIT_TOKEN', ''),
+            'DX_EXT_CFG_GIT_USER': os.getenv('DX_EXT_CFG_GIT_USER', ''),
+            'DX_EXT_GUI_PASSWORD': os.getenv('DX_EXT_GUI_PASSWORD', ''),
+            'DX_EXT_GUI_USER': os.getenv('DX_EXT_GUI_USER', ''),
+            'DX_ENV_OU_GSMA_CODE': os.getenv('DX_ENV_OU_GSMA_CODE', '')
+        }
+        
+        # Check if any environment variables are set
+        has_any_env_vars = any(env_vars.values())
+        
+        if not has_any_env_vars:
+            return {
+                "success": False,
+                "message": "No environment variables found",
+                "environment_variables": {k: bool(v) for k, v in env_vars.items()},
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        # Force apply environment configuration
+        success = load_environment_config()
+        
+        return {
+            "success": success,
+            "message": "Environment configuration reloaded successfully" if success else "Failed to reload environment configuration",
+            "environment_variables": {k: bool(v) for k, v in env_vars.items()},
+            "wizard_required": needs_wizard(),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error reloading environment configuration: {str(e)}",
             "timestamp": datetime.now().isoformat()
         }
 
