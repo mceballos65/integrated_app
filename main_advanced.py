@@ -452,17 +452,6 @@ def get_github_config():
     return github_config
 
 # ========================================
-# INITIALIZE ENVIRONMENT CONFIGURATION
-# ========================================
-
-# Initialize environment configuration after all functions are defined
-print("Checking environment configuration...")
-try:
-    load_environment_config()
-except Exception as e:
-    print(f"Warning: Environment configuration failed: {e}")
-
-# ========================================
 # API ENDPOINTS
 # ========================================
 
@@ -3339,4 +3328,16 @@ def git_create_branch(request: dict):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating branch: {str(e)}")
+
+# ========================================
+# INITIALIZE ENVIRONMENT CONFIGURATION
+# ========================================
+
+# Initialize environment configuration after all functions are defined
+print("Checking environment configuration...")
+try:
+    load_environment_config()
+except Exception as e:
+    print(f"Warning: Environment configuration failed: {e}")
+
 # ========================================
