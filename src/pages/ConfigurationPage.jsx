@@ -1227,69 +1227,6 @@ export default function ConfigurationPage() {
               </div>
             </button>
 
-            {/* Advanced Section - Collapsible */}
-            <div className="border border-gray-200 rounded-lg">
-              <button
-                onClick={toggleAdvancedCollapse}
-                className="w-full text-left p-3 rounded-lg flex items-center justify-between transition-colors hover:bg-gray-100 text-gray-700"
-              >
-                <div className="flex items-center">
-                  <span className="text-lg mr-3">⚙️</span>
-                  <span className="font-medium">Advanced</span>
-                </div>
-                <span className={`transform transition-transform duration-200 ${isAdvancedCollapsed ? 'rotate-0' : 'rotate-90'}`}>
-                  ▶
-                </span>
-              </button>
-              
-              {!isAdvancedCollapsed && (
-                <div className="border-t border-gray-200 bg-gray-50">
-                  {/* Backend Configuration */}
-                  <button
-                    onClick={() => changeActivePanel("backend")}
-                    className={`w-full text-left p-3 pl-6 flex items-center transition-colors ${
-                      activePanel === "backend" 
-                        ? "bg-kyndryl-orange text-white" 
-                        : "hover:bg-gray-100 text-gray-700"
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <span className="text-lg mr-3">🖥️</span>
-                      <span className="font-medium">Backend Server</span>
-                    </div>
-                  </button>
-
-                  {/* App Configuration */}
-                  <button
-                    onClick={() => changeActivePanel("app")}
-                    className={`w-full text-left p-3 pl-6 flex items-center transition-colors ${
-                      activePanel === "app" 
-                        ? "bg-kyndryl-orange text-white" 
-                        : "hover:bg-gray-100 text-gray-700"
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <span className="text-lg mr-3">⚙️</span>
-                      <span className="font-medium">App Configuration</span>
-                    </div>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Backend Configuration */}
-            <button
-              onClick={() => changeActivePanel("backend")}
-              className={`w-full text-left p-3 rounded-lg flex items-center justify-between transition-colors ${
-                activePanel === "backend" 
-                  ? "bg-kyndryl-orange text-white" 
-                  : "hover:bg-gray-100 text-gray-700"
-              }`}
-            >
-              <div className="flex items-center">
-                <span className="text-lg mr-3">�️</span>
-
-
             {/* Components Management */}
             <button
               onClick={() => changeActivePanel("components")}
@@ -1364,6 +1301,56 @@ export default function ConfigurationPage() {
                 <span className="font-medium">GitHub Integration</span>
               </div>
             </button>
+
+            {/* Advanced Section - Collapsible */}
+            <div className="border border-gray-200 rounded-lg">
+              <button
+                onClick={toggleAdvancedCollapse}
+                className="w-full text-left p-3 rounded-lg flex items-center justify-between transition-colors hover:bg-gray-100 text-gray-700"
+              >
+                <div className="flex items-center">
+                  <span className="text-lg mr-3">⚙️</span>
+                  <span className="font-medium">Advanced</span>
+                </div>
+                <span className={`transform transition-transform duration-200 ${isAdvancedCollapsed ? 'rotate-0' : 'rotate-90'}`}>
+                  ▶
+                </span>
+              </button>
+              
+              {!isAdvancedCollapsed && (
+                <div className="border-t border-gray-200 bg-gray-50">
+                  {/* Backend Configuration */}
+                  <button
+                    onClick={() => changeActivePanel("backend")}
+                    className={`w-full text-left p-3 pl-6 flex items-center transition-colors ${
+                      activePanel === "backend" 
+                        ? "bg-kyndryl-orange text-white" 
+                        : "hover:bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <span className="text-lg mr-3">🖥️</span>
+                      <span className="font-medium">Backend Server</span>
+                    </div>
+                  </button>
+
+                  {/* App Configuration */}
+                  <button
+                    onClick={() => changeActivePanel("app")}
+                    className={`w-full text-left p-3 pl-6 flex items-center transition-colors ${
+                      activePanel === "app" 
+                        ? "bg-kyndryl-orange text-white" 
+                        : "hover:bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <span className="text-lg mr-3">⚙️</span>
+                      <span className="font-medium">App Configuration</span>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
           </nav>
         </div>
       </div>
