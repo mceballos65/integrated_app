@@ -11,6 +11,7 @@ test_env = {
     'DX_EXT_CFG_GIT_REPO': 'https://github.com/mceballos65/integrated_app_config.git',
     'DX_EXT_CFG_GIT_TOKEN': 'ghp_test_token_here',
     'DX_EXT_CFG_GIT_USER': 'mceballos65',
+    'DX_EXT_CFG_GIT_BRANCH': 'acm_main_6_test',  # Test branch
     'DX_EXT_GUI_PASSWORD': 'testpassword123',
     'DX_EXT_GUI_USER': 'testuser',
     'DX_ENV_OU_GSMA_CODE': 'ABC'

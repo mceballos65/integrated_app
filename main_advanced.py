@@ -62,6 +62,7 @@ def load_environment_config():
         'git_repo': os.getenv('DX_EXT_CFG_GIT_REPO', ''),
         'git_token': os.getenv('DX_EXT_CFG_GIT_TOKEN', ''),
         'git_user': os.getenv('DX_EXT_CFG_GIT_USER', ''),
+        'git_branch': os.getenv('DX_EXT_CFG_GIT_BRANCH', 'main'),  # Default to 'main' if not set
         'gui_password': os.getenv('DX_EXT_GUI_PASSWORD', ''),
         'gui_user': os.getenv('DX_EXT_GUI_USER', ''),
         'account_code': os.getenv('DX_ENV_OU_GSMA_CODE', '')
@@ -117,8 +118,8 @@ def apply_environment_config(env_config):
         if not repo_url.startswith('https://'):
             repo_url = f"https://github.com/{repo_url}"
         
-        # Set default branch name based on current branch or main
-        branch_name = "main"  # Default fallback
+        # Use branch from environment variable, default to 'main' if not set
+        branch_name = env_config['git_branch'] if env_config['git_branch'] else 'main'
         
         # Update GitHub configuration
         current_config['github'].update({
@@ -137,7 +138,7 @@ def apply_environment_config(env_config):
         # Save GitHub token securely
         save_github_token(env_config['git_token'])
         config_updated = True
-        print(f"✅ GitHub configured: {repo_url}")
+        print(f"✅ GitHub configured: {repo_url} (branch: {branch_name})")
     
     # Configure account code if available
     if env_config['account_code']:
@@ -978,6 +979,7 @@ def check_wizard_required():
             'DX_EXT_CFG_GIT_REPO': bool(os.getenv('DX_EXT_CFG_GIT_REPO')),
             'DX_EXT_CFG_GIT_TOKEN': bool(os.getenv('DX_EXT_CFG_GIT_TOKEN')),
             'DX_EXT_CFG_GIT_USER': bool(os.getenv('DX_EXT_CFG_GIT_USER')),
+            'DX_EXT_CFG_GIT_BRANCH': bool(os.getenv('DX_EXT_CFG_GIT_BRANCH')),
             'DX_EXT_GUI_PASSWORD': bool(os.getenv('DX_EXT_GUI_PASSWORD')),
             'DX_EXT_GUI_USER': bool(os.getenv('DX_EXT_GUI_USER')),
             'DX_ENV_OU_GSMA_CODE': bool(os.getenv('DX_ENV_OU_GSMA_CODE'))
@@ -1012,6 +1014,7 @@ def reload_environment_config():
             'DX_EXT_CFG_GIT_REPO': os.getenv('DX_EXT_CFG_GIT_REPO', ''),
             'DX_EXT_CFG_GIT_TOKEN': os.getenv('DX_EXT_CFG_GIT_TOKEN', ''),
             'DX_EXT_CFG_GIT_USER': os.getenv('DX_EXT_CFG_GIT_USER', ''),
+            'DX_EXT_CFG_GIT_BRANCH': os.getenv('DX_EXT_CFG_GIT_BRANCH', ''),
             'DX_EXT_GUI_PASSWORD': os.getenv('DX_EXT_GUI_PASSWORD', ''),
             'DX_EXT_GUI_USER': os.getenv('DX_EXT_GUI_USER', ''),
             'DX_ENV_OU_GSMA_CODE': os.getenv('DX_ENV_OU_GSMA_CODE', '')
