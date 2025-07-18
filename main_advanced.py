@@ -204,42 +204,146 @@ def apply_environment_config(env_config):
 def needs_wizard():
     """Check if the system needs to show the configuration wizard"""
     try:
-        # First check if we have environment configuration
-        env_config_result = load_environment_config()
-        if not env_config_result:
-            return True  # No env config, need wizard
+        # Check environment variables WITHOUT loading/applying them
+        env_config = {
+            'git_repo': os.getenv('DX_EXT_CFG_GIT_REPO', ''),
+            'git_token': os.getenv('DX_EXT_CFG_GIT_TOKEN', ''),
+            'git_user': os.getenv('DX_EXT_CFG_GIT_USER', ''),
+            'git_branch': os.getenv('DX_EXT_CFG_GIT_BRANCH', 'main'),
+            'gui_password': os.getenv('DX_EXT_GUI_PASSWORD', ''),
+            'gui_user': os.getenv('DX_EXT_GUI_USER', ''),
+            'account_code': os.getenv('DX_ENV_OU_GSMA_CODE', '')
+        }
         
-        # Check if configuration exists and is complete
+        has_git_config = all([
+            env_config['git_repo'], 
+            env_config['git_token'], 
+            env_config['git_user']
+        ])
+        
+        has_gui_config = all([
+            env_config['gui_user'], 
+            env_config['gui_password']
+        ])
+        
+        print(f"Wizard check - Git config: {has_git_config}, GUI config: {has_gui_config}")
+        
+        # If we don't have any environment configuration, definitely need wizard
+        if not (has_git_config or has_gui_config or env_config['account_code']):
+            print("No environment configuration found - need wizard")
+            return True
+        
+        # Check if configuration file exists and is complete
         if not config_exists():
+            print("No config file exists - need wizard")
             return True
         
         config_data = load_config()
         if not config_data:
+            print("Could not load config data - need wizard")
             return True
         
-        # Check for essential configuration
+        # Check for essential configuration in the file
         github_config = config_data.get('github', {})
-        has_github_config = all([
+        has_file_github_config = all([
             github_config.get('githubUsername'),
             github_config.get('repositoryUrl'),
             github_config.get('branchName'),
             github_token_exists()
         ])
         
-        # If we have complete config, check if auto-pull found app_config
-        if has_github_config:
+        print(f"File has GitHub config: {has_file_github_config}")
+        
+        # If we have environment git config but the file config is incomplete, need wizard
+        if has_git_config and not has_file_github_config:
+            print("Environment has git config but file config incomplete - need wizard")
+            return True
+        
+        # If we have complete file config, check if repository has app_config directory
+        if has_file_github_config:
             try:
-                auto_pull_result = perform_auto_pull()
-                if auto_pull_result.get('requires_wizard'):
+                # Only check if auto-pull would find app_config, don't actually run it
+                github_full_config = get_github_config()
+                if github_full_config:
+                    print("Checking if repository has app_config directory...")
+                    
+                    # Create a test pull to check if app_config exists
+                    config_data = load_config()
+                    files_to_sync = config_data.get('filesToSync', '') if config_data else ''
+                    
+                    if not files_to_sync and config_data and 'github' in config_data:
+                        files_to_sync = config_data['github'].get('filesToSync', '')
+                    
+                    if not files_to_sync:
+                        files_to_sync = """app_data/config/app_config.json
+app_data/config/accounts.json
+app_data/config/component_list.json
+app_data/config/data.json
+app_data/logs/app_log.log
+app_data/logs/predictions.log"""
+                    
+                    base_path = github_full_config.get("localPath", ".")
+                    if base_path == ".":
+                        base_path = os.getcwd()
+                    
+                    # Create isolated git repository to test
+                    temp_dir = None
+                    try:
+                        temp_dir, file_list = create_isolated_git_repo(
+                            files_to_sync, base_path, github_full_config["repositoryUrl"], 
+                            github_full_config["branchName"], github_full_config["githubUsername"], 
+                            github_full_config["githubToken"]
+                        )
+                        
+                        # Try to fetch from remote
+                        fetch_result = run_git_command(["git", "fetch", "origin", github_full_config["branchName"]], temp_dir)
+                        
+                        if not fetch_result["success"]:
+                            print(f"Git fetch failed: {fetch_result.get('error', 'Unknown error')} - need wizard")
+                            return True
+                        
+                        # Check if remote branch exists
+                        branch_check_result = run_git_command(["git", "ls-remote", "--heads", "origin", github_full_config["branchName"]], temp_dir)
+                        
+                        if not (branch_check_result["success"] and branch_check_result["output"].strip()):
+                            print(f"Remote branch '{github_full_config['branchName']}' does not exist - need wizard")
+                            return True
+                        
+                        # Checkout the branch
+                        checkout_result = run_git_command(["git", "checkout", "-b", github_full_config["branchName"], f"origin/{github_full_config['branchName']}"], temp_dir)
+                        
+                        if not checkout_result["success"]:
+                            print(f"Failed to checkout remote branch - need wizard")
+                            return True
+                        
+                        # Check if app_config directory exists in the repository
+                        app_config_exists = check_app_config_directory_exists(temp_dir)
+                        
+                        if not app_config_exists:
+                            print("Repository exists but app_config directory not found - need wizard")
+                            return True
+                        
+                        print("Repository has app_config directory - no wizard needed")
+                        return False
+                        
+                    finally:
+                        if temp_dir and os.path.exists(temp_dir):
+                            shutil.rmtree(temp_dir, ignore_errors=True)
+                            
+                else:
+                    print("Could not get GitHub config for repository check - need wizard")
                     return True
+                    
             except Exception as e:
-                print(f"Error during auto-pull check: {e}")
+                print(f"Error during repository check: {e} - need wizard")
                 return True
         
-        return not has_github_config
+        # If we get here, we have some config but not complete GitHub config
+        print("Configuration incomplete - need wizard")
+        return True
         
     except Exception as e:
-        print(f"Error checking wizard requirement: {e}")
+        print(f"Error checking wizard requirement: {e} - need wizard")
         return True
 
 setup_logging()
