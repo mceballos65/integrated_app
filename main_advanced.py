@@ -1794,11 +1794,56 @@ def add_specific_files_to_git(files_to_sync, base_path):
     return {"success": True, "output": f"Added {len(file_list)} specific files to git"}
 
 def create_isolated_git_repo(files_to_sync, base_path, repo_url, branch_name, github_username, github_token):
-    """Create an isolated git repository with only the specified files"""
+    """Create an isolated git repository and fetch files from remote - FOR AUTO-PULL ONLY"""
     import tempfile
     import shutil
     
-    print(f"Creating isolated repo with files: {files_to_sync}")
+    print(f"Creating isolated repo for auto-pull...")
+    print(f"Repo URL: {repo_url}")
+    print(f"Branch: {branch_name}")
+    
+    # Create temporary directory
+    temp_dir = tempfile.mkdtemp(prefix="git_sync_")
+    print(f"Created temp directory: {temp_dir}")
+    
+    try:
+        # Parse the files list
+        file_list = [f.strip() for f in files_to_sync.split('\n') if f.strip()]
+        print(f"Files to fetch: {file_list}")
+        
+        # Initialize git repo in EMPTY temp directory (no local files copied yet)
+        print("Initializing git repository...")
+        init_result = run_git_command(["git", "init"], temp_dir)
+        print(f"Git init result: {init_result}")
+        
+        print("Setting git config...")
+        config_name_result = run_git_command(["git", "config", "user.name", github_username], temp_dir)
+        config_email_result = run_git_command(["git", "config", "user.email", f"{github_username}@users.noreply.github.com"], temp_dir)
+        print(f"Git config name result: {config_name_result}")
+        print(f"Git config email result: {config_email_result}")
+        
+        # Set up remote with authentication
+        repo_url_with_auth = repo_url.replace(
+            "https://", f"https://{github_username}:{github_token}@"
+        )
+        print("Setting up remote...")
+        remote_result = run_git_command(["git", "remote", "add", "origin", repo_url_with_auth], temp_dir)
+        print(f"Git remote add result: {remote_result}")
+        
+        return temp_dir, file_list
+        
+    except Exception as e:
+        print(f"Error in create_isolated_git_repo: {str(e)}")
+        # Clean up on error
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        raise e
+
+def create_isolated_git_repo_for_push(files_to_sync, base_path, repo_url, branch_name, github_username, github_token):
+    """Create an isolated git repository with local files copied first - FOR PUSH OPERATIONS"""
+    import tempfile
+    import shutil
+    
+    print(f"Creating isolated repo for push with files: {files_to_sync}")
     print(f"Base path: {base_path}")
     print(f"Repo URL: {repo_url}")
     print(f"Branch: {branch_name}")
@@ -1882,6 +1927,12 @@ def create_isolated_git_repo(files_to_sync, base_path, repo_url, branch_name, gi
         print(f"Git remote add result: {remote_result}")
         
         return temp_dir, copied_files
+        
+    except Exception as e:
+        print(f"Error in create_isolated_git_repo_for_push: {str(e)}")
+        # Clean up on error
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        raise e
         
     except Exception as e:
         print(f"Error in create_isolated_git_repo: {str(e)}")
@@ -2401,7 +2452,7 @@ app_data/logs/predictions.log"""
             temp_dir = None
             try:
                 print("Creating isolated git repository...")
-                temp_dir, copied_files = create_isolated_git_repo(
+                temp_dir, copied_files = create_isolated_git_repo_for_push(
                     files_to_sync, base_path, github_config["repositoryUrl"], 
                     github_config["branchName"], github_config["githubUsername"], 
                     github_config["githubToken"]
@@ -2512,7 +2563,7 @@ app_data/logs/predictions.log"""
             
             temp_dir = None
             try:
-                temp_dir, file_list = create_isolated_git_repo(
+                temp_dir, file_list = create_isolated_git_repo_for_push(
                     files_to_sync, base_path, request.repository_url, 
                     request.branch_name, request.github_username, 
                     request.github_token
