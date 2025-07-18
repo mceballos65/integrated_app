@@ -661,6 +661,12 @@ export default function ConfigurationPage() {
     return localStorage.getItem('kyndryl_active_panel') || "extension";
   });
 
+  // Advanced section collapse state
+  const [isAdvancedCollapsed, setIsAdvancedCollapsed] = useState(() => {
+    const saved = localStorage.getItem('kyndryl_advanced_collapsed');
+    return saved ? JSON.parse(saved) : true; // Default collapsed
+  });
+
   // Debug logging (after activePanel is declared)
   console.log('ConfigurationPage Debug:', {
     users,
@@ -733,6 +739,13 @@ export default function ConfigurationPage() {
       console.error('Error reloading configuration:', error);
       showStatusMessage('Error reloading configuration from backend', true);
     }
+  };
+
+  // Toggle advanced section collapse state
+  const toggleAdvancedCollapse = () => {
+    const newState = !isAdvancedCollapsed;
+    setIsAdvancedCollapsed(newState);
+    localStorage.setItem('kyndryl_advanced_collapsed', JSON.stringify(newState));
   };
 
   // Helper function to reload config after making changes
@@ -870,8 +883,8 @@ export default function ConfigurationPage() {
         setEditedConfigs(combinedEditedConfigs);
       }
     }
-    // Initialize backend URL
-    setLocalBackendUrl(getBackendUrlForConfig());
+    // Initialize backend URL with default value "/api"
+    setLocalBackendUrl(getBackendUrlForConfig() || "/api");
   }, [configLoaded, config]); // Simplified dependencies
 
   // Check admin user status and sync with backend config
@@ -1202,7 +1215,7 @@ export default function ConfigurationPage() {
             {/* Extension Settings - New first panel */}
             <button
               onClick={() => changeActivePanel("extension")}
-              className={`w-full text-left p-3 rounded-lg flex items-center justify-between transition-colors ${
+              className={`w-full text-left p-3 rounded-lg flex items-center transition-colors ${
                 activePanel === "extension" 
                   ? "bg-kyndryl-orange text-white" 
                   : "hover:bg-gray-100 text-gray-700"
@@ -1212,10 +1225,57 @@ export default function ConfigurationPage() {
                 <span className="text-lg mr-3">🔧</span>
                 <span className="font-medium">Extension Settings</span>
               </div>
-              {!editedConfigs.extension && (
-                <span className="text-red-500 text-xl font-bold">!</span>
-              )}
             </button>
+
+            {/* Advanced Section - Collapsible */}
+            <div className="border border-gray-200 rounded-lg">
+              <button
+                onClick={toggleAdvancedCollapse}
+                className="w-full text-left p-3 rounded-lg flex items-center justify-between transition-colors hover:bg-gray-100 text-gray-700"
+              >
+                <div className="flex items-center">
+                  <span className="text-lg mr-3">⚙️</span>
+                  <span className="font-medium">Advanced</span>
+                </div>
+                <span className={`transform transition-transform duration-200 ${isAdvancedCollapsed ? 'rotate-0' : 'rotate-90'}`}>
+                  ▶
+                </span>
+              </button>
+              
+              {!isAdvancedCollapsed && (
+                <div className="border-t border-gray-200 bg-gray-50">
+                  {/* Backend Configuration */}
+                  <button
+                    onClick={() => changeActivePanel("backend")}
+                    className={`w-full text-left p-3 pl-6 flex items-center transition-colors ${
+                      activePanel === "backend" 
+                        ? "bg-kyndryl-orange text-white" 
+                        : "hover:bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <span className="text-lg mr-3">🖥️</span>
+                      <span className="font-medium">Backend Server</span>
+                    </div>
+                  </button>
+
+                  {/* App Configuration */}
+                  <button
+                    onClick={() => changeActivePanel("app")}
+                    className={`w-full text-left p-3 pl-6 flex items-center transition-colors ${
+                      activePanel === "app" 
+                        ? "bg-kyndryl-orange text-white" 
+                        : "hover:bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <span className="text-lg mr-3">⚙️</span>
+                      <span className="font-medium">App Configuration</span>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Backend Configuration */}
             <button
@@ -1230,27 +1290,7 @@ export default function ConfigurationPage() {
                 <span className="text-lg mr-3">�️</span>
                 <span className="font-medium">Backend Server</span>
               </div>
-              {!editedConfigs.backend && (
-                <span className="text-red-500 text-xl font-bold">!</span>
-              )}
-            </button>
 
-            {/* App Configuration */}
-            <button
-              onClick={() => changeActivePanel("app")}
-              className={`w-full text-left p-3 rounded-lg flex items-center justify-between transition-colors ${
-                activePanel === "app" 
-                  ? "bg-kyndryl-orange text-white" 
-                  : "hover:bg-gray-100 text-gray-700"
-              }`}
-            >
-              <div className="flex items-center">
-                <span className="text-lg mr-3">⚙️</span>
-                <span className="font-medium">App Configuration</span>
-              </div>
-              {!editedConfigs.app && (
-                <span className="text-red-500 text-xl font-bold">!</span>
-              )}
             </button>
 
             {/* Components Management */}
@@ -1271,7 +1311,7 @@ export default function ConfigurationPage() {
             {/* User Management */}
             <button
               onClick={() => changeActivePanel("users")}
-              className={`w-full text-left p-3 rounded-lg flex items-center justify-between transition-colors ${
+              className={`w-full text-left p-3 rounded-lg flex items-center transition-colors ${
                 activePanel === "users" 
                   ? "bg-kyndryl-orange text-white" 
                   : "hover:bg-gray-100 text-gray-700"
@@ -1281,15 +1321,12 @@ export default function ConfigurationPage() {
                 <span className="text-lg mr-3">👥</span>
                 <span className="font-medium">User Management</span>
               </div>
-              {!editedConfigs.users && (
-                <span className="text-red-500 text-xl font-bold">!</span>
-              )}
             </button>
 
             {/* Admin Security */}
             <button
               onClick={() => changeActivePanel("security")}
-              className={`w-full text-left p-3 rounded-lg flex items-center justify-between transition-colors ${
+              className={`w-full text-left p-3 rounded-lg flex items-center transition-colors ${
                 activePanel === "security" 
                   ? "bg-kyndryl-orange text-white" 
                   : "hover:bg-gray-100 text-gray-700"
@@ -1299,9 +1336,6 @@ export default function ConfigurationPage() {
                 <span className="text-lg mr-3">🔒</span>
                 <span className="font-medium">Admin Security</span>
               </div>
-              {!editedConfigs.security && (
-                <span className="text-red-500 text-xl font-bold">!</span>
-              )}
             </button>
 
             {/* Log Configuration */}
@@ -1683,10 +1717,10 @@ function BackendConfigPanel({ localBackendUrl, setLocalBackendUrl, handleBackend
             value={localBackendUrl}
             onChange={(e) => setLocalBackendUrl(e.target.value)}
             className="w-full border border-gray-300 rounded px-3 py-2"
-            placeholder="http://localhost:8000"
+            placeholder="/api"
           />
           <p className="text-sm text-gray-600 mt-1">
-            Enter the complete URL including protocol (http:// or https://) - http://localhost:8000 is the default for AIOps Extension.
+            Enter the complete URL including protocol (http:// or https://) - /api is the default for AIOps Extension.
           </p>
         </div>
 
@@ -1787,7 +1821,7 @@ function AppConfigPanel({ localPredictionUrl, setLocalPredictionUrl, localAccoun
             value={localPredictionUrl}
             onChange={(e) => setLocalPredictionUrl(e.target.value)}
             className="w-full border border-gray-300 rounded px-3 py-2"
-            placeholder="http://localhost:8000"
+            placeholder="/api"
           />
           <p className="text-sm text-gray-600 mt-1">
             URL for the prediction API service
