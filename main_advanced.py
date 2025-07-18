@@ -1821,113 +1821,141 @@ def sync_files_back_to_source(temp_dir, file_list, base_path):
 def perform_auto_pull():
     """Perform automatic git pull on startup if configuration is available"""
     try:
-        github_config = get_github_config()
-        if not github_config:
-            return {"success": False, "message": "GitHub configuration not available"}
+        print("=== Starting Auto-Pull Process ===")
         
-        print(f"Auto-pull from: {github_config['repositoryUrl']} (branch: {github_config['branchName']})")
+        # FIRST: Check if app_config.json already exists locally
+        base_path = os.getcwd()
+        app_config_path = os.path.join(base_path, "app_data", "config", "app_config.json")
+        print(f"Checking for existing app_config.json at: {app_config_path}")
         
-        # Use the existing git_pull logic but without showing detailed logs
-        config_data = load_config()
-        files_to_sync = config_data.get('filesToSync', '') if config_data else ''
+        if os.path.exists(app_config_path):
+            print("✅ app_config.json already exists locally - no auto-pull needed")
+            return {"success": True, "message": "app_config.json already exists locally - no pull required"}
         
-        # If not found at root level, check inside github section
-        if not files_to_sync and config_data and 'github' in config_data:
-            files_to_sync = config_data['github'].get('filesToSync', '')
+        print("❌ app_config.json not found locally - proceeding with auto-pull")
         
-        # If no files configured, use default list
-        if not files_to_sync:
-            files_to_sync = """app_data/config/app_config.json
+        # Get environment variables for git configuration
+        env_config = {
+            'git_repo': os.getenv('DX_EXT_CFG_GIT_REPO', ''),
+            'git_token': os.getenv('DX_EXT_CFG_GIT_TOKEN', ''),
+            'git_user': os.getenv('DX_EXT_CFG_GIT_USER', ''),
+            'git_branch': os.getenv('DX_EXT_CFG_GIT_BRANCH', 'main'),
+        }
+        
+        # Check if we have required git environment variables
+        if not all([env_config['git_repo'], env_config['git_token'], env_config['git_user']]):
+            print("❌ Missing required git environment variables for auto-pull")
+            return {"success": False, "message": "Missing required git environment variables", "requires_wizard": True}
+        
+        print(f"✅ Git environment variables available:")
+        print(f"   Repository: {env_config['git_repo']}")
+        print(f"   User: {env_config['git_user']}")
+        print(f"   Branch: {env_config['git_branch']}")
+        
+        # Define files to sync (same as default configuration)
+        files_to_sync = """app_data/config/app_config.json
 app_data/config/accounts.json
 app_data/config/component_list.json
 app_data/config/data.json
 app_data/logs/app_log.log
 app_data/logs/predictions.log"""
         
-        base_path = github_config.get("localPath", ".")
-        if base_path == ".":
-            base_path = os.getcwd()
+        print(f"Base path: {base_path}")
         
-        # Create isolated git repository with only specified files
+        # Create isolated git repository for auto-pull (TO TEMPORARY DIRECTORY)
         temp_dir = None
         try:
+            print("Creating isolated git repository in temporary directory...")
             temp_dir, file_list = create_isolated_git_repo(
-                files_to_sync, base_path, github_config["repositoryUrl"], 
-                github_config["branchName"], github_config["githubUsername"], 
-                github_config["githubToken"]
+                files_to_sync, 
+                base_path, 
+                env_config['git_repo'], 
+                env_config['git_branch'], 
+                env_config['git_user'], 
+                env_config['git_token']
             )
             
-            # Remove local files to avoid conflicts
-            for file_path in file_list:
-                temp_file = os.path.join(temp_dir, file_path)
-                if os.path.exists(temp_file):
-                    os.remove(temp_file)
+            print(f"Temporary directory created: {temp_dir}")
             
-            # Try to fetch and pull from remote
-            fetch_result = run_git_command(["git", "fetch", "origin", github_config["branchName"]], temp_dir)
+            # Try to fetch from remote
+            print("Fetching from remote repository...")
+            fetch_result = run_git_command(["git", "fetch", "origin", env_config['git_branch']], temp_dir)
             
             if not fetch_result["success"]:
-                return {"success": False, "message": f"Git fetch failed: {fetch_result['error']}"}
+                print(f"❌ Git fetch failed: {fetch_result.get('error', 'Unknown error')}")
+                return {"success": False, "message": f"Git fetch failed: {fetch_result.get('error', 'Unknown error')}", "requires_wizard": True}
             
-            # Check if remote branch exists and has app_config directory
-            branch_check_result = run_git_command(["git", "ls-remote", "--heads", "origin", github_config["branchName"]], temp_dir)
+            # Check if remote branch exists
+            print(f"Checking if branch '{env_config['git_branch']}' exists...")
+            branch_check_result = run_git_command(["git", "ls-remote", "--heads", "origin", env_config['git_branch']], temp_dir)
             
-            if branch_check_result["success"] and branch_check_result["output"].strip():
-                # Remote branch exists, checkout and check for app_config directory
-                checkout_result = run_git_command(["git", "checkout", "-b", github_config["branchName"], f"origin/{github_config['branchName']}"], temp_dir)
+            if not (branch_check_result["success"] and branch_check_result["output"].strip()):
+                print(f"❌ Remote branch '{env_config['git_branch']}' does not exist")
+                return {"success": False, "message": f"Remote branch '{env_config['git_branch']}' does not exist", "requires_wizard": True}
+            
+            # Checkout the branch
+            print(f"Checking out branch '{env_config['git_branch']}'...")
+            checkout_result = run_git_command(["git", "checkout", "-b", env_config['git_branch'], f"origin/{env_config['git_branch']}"], temp_dir)
+            
+            if not checkout_result["success"]:
+                print(f"❌ Failed to checkout remote branch: {checkout_result.get('error', 'Unknown error')}")
+                return {"success": False, "message": f"Failed to checkout remote branch: {checkout_result.get('error', 'Unknown error')}", "requires_wizard": True}
+            
+            # CRITICAL CHECK: Verify app_config.json exists in the TEMPORARY directory before copying
+            temp_app_config_path = os.path.join(temp_dir, "app_data", "config", "app_config.json")
+            print(f"Checking if app_config.json exists in repository at: {temp_app_config_path}")
+            
+            if not os.path.exists(temp_app_config_path):
+                print("❌ CRITICAL: app_config.json not found in repository - requires wizard")
+                return {"success": False, "message": "Repository does not contain app_config.json", "requires_wizard": True}
+            
+            print("✅ app_config.json found in repository - proceeding with file sync")
+            
+            # Sync files from repository to local (ONLY if app_config.json exists)
+            print("Syncing files from repository...")
+            files_copied = 0
+            for file_path in file_list:
+                repo_file_path = os.path.join(temp_dir, file_path)
+                local_file_path = os.path.join(base_path, file_path)
                 
-                if not checkout_result["success"]:
-                    return {"success": False, "message": f"Failed to checkout remote branch: {checkout_result['error']}"}
-                
-                # Check if app_config directory exists in the repository
-                app_config_exists = check_app_config_directory_exists(temp_dir)
-                
-                if not app_config_exists:
-                    return {
-                        "success": False, 
-                        "message": "Repository exists but app_config directory not found. Wizard required.",
-                        "requires_wizard": True
-                    }
-                
-                # Sync files back to source directory
-                sync_files_back_to_source(temp_dir, file_list, base_path)
-                
-                # CRITICAL: After syncing, verify that we actually have the essential config file locally
-                project_root = base_path
-                if base_path == "." or base_path == os.getcwd():
-                    project_root = os.getcwd()
-                elif os.path.basename(base_path.rstrip('/\\')) == 'app_data':
-                    project_root = os.path.dirname(base_path.rstrip('/\\'))
-                
-                # Check if the critical app_config.json file actually exists locally now
-                app_config_path = os.path.join(project_root, "app_data", "config", "app_config.json")
-                
-                if os.path.exists(app_config_path):
-                    print(f"✅ Verified: app_config.json exists locally at {app_config_path}")
-                    return {
-                        "success": True, 
-                        "message": f"Successfully pulled and verified {len(file_list)} files from {github_config['repositoryUrl']}:{github_config['branchName']}"
-                    }
+                if os.path.exists(repo_file_path):
+                    print(f"Copying: {file_path}")
+                    
+                    # Create directory if it doesn't exist
+                    local_dir = os.path.dirname(local_file_path)
+                    if not os.path.exists(local_dir):
+                        os.makedirs(local_dir, exist_ok=True)
+                    
+                    # Copy file
+                    shutil.copy2(repo_file_path, local_file_path)
+                    files_copied += 1
                 else:
-                    print(f"❌ Critical: app_config.json NOT found locally at {app_config_path} after sync")
-                    return {
-                        "success": False, 
-                        "message": "Repository synced but app_config.json not found locally. Wizard required.",
-                        "requires_wizard": True
-                    }
-            else:
-                return {
-                    "success": False, 
-                    "message": f"Remote branch '{github_config['branchName']}' does not exist. Wizard required.",
-                    "requires_wizard": True
-                }
-                
+                    print(f"File not found in repository: {file_path}")
+            
+            print(f"✅ Files copied: {files_copied}")
+            
+            # FINAL VERIFICATION: Verify that app_config.json actually exists locally after sync
+            print(f"Final verification: checking app_config.json exists at: {app_config_path}")
+            
+            if not os.path.exists(app_config_path):
+                print("❌ CRITICAL: app_config.json not found locally after sync - something went wrong")
+                return {"success": False, "message": "app_config.json not found after repository sync", "requires_wizard": True}
+            
+            print("✅ Final verification passed: app_config.json exists locally")
+            return {
+                "success": True, 
+                "message": f"Successfully pulled and verified {files_copied} files from {env_config['git_repo']}:{env_config['git_branch']}"
+            }
+            
         finally:
+            # Clean up temporary directory
             if temp_dir and os.path.exists(temp_dir):
+                print(f"Cleaning up temporary directory: {temp_dir}")
                 shutil.rmtree(temp_dir, ignore_errors=True)
-                
+        
     except Exception as e:
-        return {"success": False, "message": f"Auto-pull error: {str(e)}"}
+        print(f"❌ Auto-pull error: {e}")
+        return {"success": False, "message": f"Auto-pull error: {str(e)}", "requires_wizard": True}
 
 def check_app_config_directory_exists(temp_dir):
     """Check if app_config directory exists in the git repository"""
@@ -2731,9 +2759,9 @@ async def update_logs_config(request: Request):
 async def startup_event():
     """
     Evento ejecutado al iniciar la aplicación
+    - Maneja configuración automática y auto-pull
     - Limpia los logs según la configuración actual
     - Inicia el hilo de limpieza periódica
-    - Maneja configuración automática y auto-pull
     """
     try:
         print(f"[{datetime.now().isoformat()}] Application startup - Starting initialization...")
@@ -2743,19 +2771,14 @@ async def startup_event():
         env_initialized = load_environment_config()
         print(f"[{datetime.now().isoformat()}] Environment initialization: {'✅ Success' if env_initialized else '❌ Failed'}")
         
-        # Check if we need the wizard
-        wizard_needed = needs_wizard()
-        print(f"[{datetime.now().isoformat()}] Wizard needed: {'Yes' if wizard_needed else 'No'}")
+        # Check if we already have app_config.json locally
+        app_config_path = os.path.join(os.getcwd(), "app_data", "config", "app_config.json")
+        app_config_exists = os.path.exists(app_config_path)
+        print(f"[{datetime.now().isoformat()}] Local app_config.json exists: {'Yes' if app_config_exists else 'No'}")
         
-        # If wizard is not needed, we should have local app_config.json
-        if not wizard_needed:
-            app_config_path = os.path.join(os.getcwd(), "app_data", "config", "app_config.json")
-            if os.path.exists(app_config_path):
-                print(f"[{datetime.now().isoformat()}] ✅ Local app_config.json exists - startup complete")
-            else:
-                print(f"[{datetime.now().isoformat()}] Warning: needs_wizard() returned False but no local app_config.json found")
-        else:
-            # Wizard is needed - check if we can try auto-pull
+        # If we don't have app_config.json, try auto-pull
+        if not app_config_exists:
+            # Check if we have git environment variables for auto-pull
             env_config = {
                 'git_repo': os.getenv('DX_EXT_CFG_GIT_REPO', ''),
                 'git_token': os.getenv('DX_EXT_CFG_GIT_TOKEN', ''),
@@ -2763,26 +2786,22 @@ async def startup_event():
             }
             
             has_git_config = all([env_config['git_repo'], env_config['git_token'], env_config['git_user']])
+            print(f"[{datetime.now().isoformat()}] Git environment config available: {has_git_config}")
             
             if has_git_config:
-                print(f"[{datetime.now().isoformat()}] Environment git config available - attempting auto-pull...")
+                print(f"[{datetime.now().isoformat()}] No local app_config.json - attempting auto-pull...")
                 result = perform_auto_pull()
                 
                 if result.get("success"):
                     print(f"[{datetime.now().isoformat()}] ✅ Auto-pull successful: {result.get('message', '')}")
-                    
-                    # Re-check if wizard is still needed after auto-pull
-                    wizard_still_needed = needs_wizard()
-                    if not wizard_still_needed:
-                        print(f"[{datetime.now().isoformat()}] ✅ Configuration now complete - wizard no longer needed")
-                    else:
-                        print(f"[{datetime.now().isoformat()}] ⚠️ Wizard still needed despite successful auto-pull")
                 else:
                     print(f"[{datetime.now().isoformat()}] ❌ Auto-pull failed: {result.get('message', 'Unknown error')}")
                     if result.get("requires_wizard"):
                         print(f"[{datetime.now().isoformat()}] Auto-pull indicates wizard is needed")
             else:
-                print(f"[{datetime.now().isoformat()}] No environment git config - wizard will be required")
+                print(f"[{datetime.now().isoformat()}] No git environment config - wizard will be required for missing app_config.json")
+        else:
+            print(f"[{datetime.now().isoformat()}] ✅ Local app_config.json already exists - no auto-pull needed")
         
         # Continue with log cleanup
         print(f"[{datetime.now().isoformat()}] Application startup - Cleaning logs...")
