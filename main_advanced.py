@@ -229,13 +229,6 @@ print("Initializing user management system...")
 initialize_default_users()
 print("User management system ready!")
 
-# Initialize environment configuration
-print("Checking environment configuration...")
-try:
-    load_environment_config()
-except Exception as e:
-    print(f"Warning: Environment configuration failed: {e}")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # O reemplazá "*" por ["http://localhost:5173"] si querés restringirlo
@@ -432,6 +425,21 @@ def get_github_config():
     
     print(f"GitHub config validation passed. All required fields present.")
     return github_config
+
+# ========================================
+# INITIALIZE ENVIRONMENT CONFIGURATION
+# ========================================
+
+# Initialize environment configuration after all functions are defined
+print("Checking environment configuration...")
+try:
+    load_environment_config()
+except Exception as e:
+    print(f"Warning: Environment configuration failed: {e}")
+
+# ========================================
+# API ENDPOINTS
+# ========================================
 
 @app.post("/api/predict")
 def predict(request: PredictRequest, http_request: Request):
