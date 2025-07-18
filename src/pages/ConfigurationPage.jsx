@@ -498,6 +498,10 @@ export default function ConfigurationPage() {
   const [localBranchName, setLocalBranchName] = useState("");
   const [localPath, setLocalPath] = useState("");
   const [localFilesToSync, setLocalFilesToSync] = useState("");
+
+  // Environment variables status
+  const [environmentStatus, setEnvironmentStatus] = useState([]);
+  const [loadingEnvironmentStatus, setLoadingEnvironmentStatus] = useState(true);
   const [gitStatus, setGitStatus] = useState("");
   const [localBackendUrl, setLocalBackendUrl] = useState("");
   
@@ -542,6 +546,30 @@ export default function ConfigurationPage() {
   useEffect(() => {
     refreshUsers();
   }, [refreshUsers]);
+
+  // Load environment variables status
+  useEffect(() => {
+    const loadEnvironmentStatus = async () => {
+      setLoadingEnvironmentStatus(true);
+      try {
+        const response = await fetch('/api/config/environment-status');
+        if (response.ok) {
+          const data = await response.json();
+          setEnvironmentStatus(data.environment_status || []);
+        } else {
+          console.error('Failed to load environment status');
+          setEnvironmentStatus([]);
+        }
+      } catch (error) {
+        console.error('Error loading environment status:', error);
+        setEnvironmentStatus([]);
+      } finally {
+        setLoadingEnvironmentStatus(false);
+      }
+    };
+
+    loadEnvironmentStatus();
+  }, []);
 
   // Función personalizada para cambiar el panel activo y guardarlo en localStorage
   const changeActivePanel = async (panel) => {
@@ -1169,6 +1197,12 @@ export default function ConfigurationPage() {
             </div>
           )}
 
+          {/* Initial Verification Panel - Always shown at the top */}
+          <InitialVerificationPanel 
+            environmentStatus={environmentStatus}
+            loadingEnvironmentStatus={loadingEnvironmentStatus}
+          />
+
           {/* Dynamic Content Based on Active Panel */}
           {activePanel === "backend" && <BackendConfigPanel 
             localBackendUrl={localBackendUrl}
@@ -1267,6 +1301,91 @@ export default function ConfigurationPage() {
 }
 
 // Individual Panel Components
+function InitialVerificationPanel({ environmentStatus, loadingEnvironmentStatus }) {
+  if (loadingEnvironmentStatus) {
+    return (
+      <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200 mb-6">
+        <div className="flex items-center mb-4">
+          <span className="text-2xl mr-3">🔍</span>
+          <h2 className="text-2xl font-bold text-kyndryl-orange">Initial Verification</h2>
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kyndryl-orange"></div>
+          <span className="ml-3 text-gray-600">Loading environment status...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200 mb-6">
+      <div className="flex items-center mb-4">
+        <span className="text-2xl mr-3">🔍</span>
+        <h2 className="text-2xl font-bold text-kyndryl-orange">Initial Verification</h2>
+      </div>
+      
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <p className="text-sm text-blue-700">
+          Environment variables detected from extension properties. Green indicates configured values, 
+          red indicates missing required values.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {environmentStatus.map((env, index) => (
+          <div 
+            key={env.variable}
+            className={`flex items-center justify-between p-3 rounded-lg border ${
+              env.status === 'success' 
+                ? 'bg-green-50 border-green-200' 
+                : env.status === 'warning'
+                ? 'bg-yellow-50 border-yellow-200'
+                : 'bg-red-50 border-red-200'
+            }`}
+          >
+            <div className="flex items-center">
+              <span className={`text-lg mr-3 ${
+                env.status === 'success' 
+                  ? 'text-green-600' 
+                  : env.status === 'warning'
+                  ? 'text-yellow-600'
+                  : 'text-red-600'
+              }`}>
+                {env.status === 'success' ? '✅' : env.status === 'warning' ? '⚠️' : '❌'}
+              </span>
+              <div>
+                <div className="font-medium text-gray-900">
+                  {env.variable}
+                </div>
+                <div className={`text-sm ${
+                  env.status === 'success' 
+                    ? 'text-green-700' 
+                    : env.status === 'warning'
+                    ? 'text-yellow-700'
+                    : 'text-red-700'
+                }`}>
+                  {env.message}
+                </div>
+              </div>
+            </div>
+            <div className="text-xs text-gray-500">
+              {env.required ? 'Required' : 'Optional'}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {environmentStatus.length === 0 && (
+        <div className="text-center py-8 text-gray-500">
+          <span className="text-4xl mb-2 block">📋</span>
+          <p>No environment variables detected</p>
+          <p className="text-sm">Manual configuration will be required</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BackendConfigPanel({ localBackendUrl, setLocalBackendUrl, handleBackendUrlSave, testBackendConnection, getBackendUrl, showReloginButton, handleRelogin }) {
   return (
     <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200">
