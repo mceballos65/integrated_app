@@ -244,30 +244,20 @@ def verify_password(password: str, hashed: str) -> bool:
 def initialize_default_users():
     """Initialize default users if file doesn't exist"""
     if not os.path.exists(USERS_FILE):
-        print("Initializing default users...")
+        print("Initializing empty users file...")
         
-        # Create default admin user
-        default_admin = {
-            "username": "admin",
-            "password_hash": hash_password("!Passw0rd"),
-            "is_active": True,
-            "is_default": True,
-            "created_at": datetime.now().isoformat(),
-            "last_login": None,
-            "login_attempts": 0
-        }
-        
+        # Create empty users data structure - no default admin user for security
         users_data = {
-            "users": [default_admin],
+            "users": [],
             "last_modified": datetime.now().isoformat(),
             "version": "1.0"
         }
         
         if save_users_data(users_data):
-            print("Default users initialized successfully!")
+            print("Empty users file initialized successfully!")
             return True
         else:
-            print("Failed to initialize default users!")
+            print("Failed to initialize users file!")
             return False
     
     return True

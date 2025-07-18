@@ -1288,10 +1288,7 @@ export default function ConfigurationPage() {
             >
               <div className="flex items-center">
                 <span className="text-lg mr-3">�️</span>
-                <span className="font-medium">Backend Server</span>
-              </div>
 
-            </button>
 
             {/* Components Management */}
             <button
