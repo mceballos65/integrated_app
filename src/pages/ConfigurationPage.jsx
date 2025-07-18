@@ -37,6 +37,8 @@ function GitHubConfigPanel({
   const [checkingCredentials, setCheckingCredentials] = useState(true);
   const [savingCredentials, setSavingCredentials] = useState(false);
   const [savingAdvancedSettings, setSavingAdvancedSettings] = useState(false);
+  const [showBranchCreateDialog, setShowBranchCreateDialog] = useState(false);
+  const [branchCreateDialogData, setBranchCreateDialogData] = useState(null);
 
   // Check if GitHub credentials exist on component mount
   useEffect(() => {
@@ -172,55 +174,81 @@ function GitHubConfigPanel({
         return;
       }
 
-      // If branch doesn't exist, ask user if they want to create it
+      // If branch doesn't exist, show custom dialog to ask if user wants to create it
       if (!branchCheckData.branch_exists) {
         setSavingAdvancedSettings(false);
         
-        const shouldCreate = confirm(
-          `The branch "${localBranchName.trim()}" does not exist in the remote repository "${localRepositoryUrl.trim()}".\n\n` +
-          `Would you like to create this branch automatically?\n\n` +
-          `Click "OK" to create the branch and save the configuration.\n` +
-          `Click "Cancel" to change the branch name.`
-        );
-
-        if (!shouldCreate) {
-          showStatusMessage('❌ Configuration not saved. Please choose an existing branch or a different branch name.', true);
-          return;
-        }
-
-        // User wants to create the branch
-        setSavingAdvancedSettings(true);
-        showStatusMessage('🔨 Creating branch in remote repository...', false);
-        
-        try {
-          const createBranchResponse = await fetch('/api/config/github/branch/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              repository_url: localRepositoryUrl.trim(),
-              branch_name: localBranchName.trim()
-            })
-          });
-
-          const createBranchData = await createBranchResponse.json();
-          
-          if (!createBranchData.success) {
-            showStatusMessage('❌ Failed to create branch: ' + createBranchData.error, true);
-            setSavingAdvancedSettings(false);
-            return;
-          }
-
-          showStatusMessage('✅ Branch created successfully! Now saving configuration...', false);
-        } catch (createError) {
-          showStatusMessage('❌ Error creating branch: ' + createError.message, true);
-          setSavingAdvancedSettings(false);
-          return;
-        }
+        // Store dialog data and show the custom dialog
+        setBranchCreateDialogData({
+          branchName: localBranchName.trim(),
+          repositoryUrl: localRepositoryUrl.trim()
+        });
+        setShowBranchCreateDialog(true);
+        return;
       } else {
         showStatusMessage('✅ Branch exists in remote repository. Saving configuration...', false);
       }
 
       // Now save the configuration
+      await saveAdvancedConfiguration();
+      
+    } catch (error) {
+      showStatusMessage('❌ Error saving advanced settings: ' + error.message, true);
+      appLogger.error('GITHUB_CONFIG', 'Error saving advanced GitHub settings', { 
+        error: error.message 
+      });
+      setSavingAdvancedSettings(false);
+    }
+  };
+
+  const handleCreateBranchAndSave = async () => {
+    if (!branchCreateDialogData) return;
+    
+    setSavingAdvancedSettings(true);
+    setShowBranchCreateDialog(false);
+    showStatusMessage('🔨 Creating branch in remote repository...', false);
+    
+    try {
+      const createBranchResponse = await fetch('/api/config/github/branch/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repository_url: branchCreateDialogData.repositoryUrl,
+          branch_name: branchCreateDialogData.branchName
+        })
+      });
+
+      const createBranchData = await createBranchResponse.json();
+      
+      if (!createBranchData.success) {
+        showStatusMessage('❌ Failed to create branch: ' + createBranchData.error, true);
+        setSavingAdvancedSettings(false);
+        setBranchCreateDialogData(null);
+        return;
+      }
+
+      showStatusMessage('✅ Branch created successfully! Now saving configuration...', false);
+      
+      // Continue with saving the configuration
+      await saveAdvancedConfiguration();
+      
+    } catch (createError) {
+      showStatusMessage('❌ Error creating branch: ' + createError.message, true);
+      setSavingAdvancedSettings(false);
+    } finally {
+      setBranchCreateDialogData(null);
+    }
+  };
+
+  const handleCancelBranchCreate = () => {
+    setShowBranchCreateDialog(false);
+    setBranchCreateDialogData(null);
+    showStatusMessage('❌ Configuration not saved. Please choose an existing branch or a different branch name.', true);
+  };
+
+  const saveAdvancedConfiguration = async () => {
+    // This function contains the actual config saving logic
+    try {
       const response = await fetch('/api/config/update', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -241,8 +269,7 @@ function GitHubConfigPanel({
           branchName: localBranchName.trim(), 
           localPath: localPath.trim(),
           repositoryUrl: localRepositoryUrl.trim(),
-          filesToSync: localFilesToSync.trim(),
-          branchExisted: branchCheckData.branch_exists
+          filesToSync: localFilesToSync.trim()
         });
       } else {
         const errorData = await response.json();
@@ -514,6 +541,45 @@ function GitHubConfigPanel({
               className="flex-1 bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Branch Creation Dialog */}
+      {showBranchCreateDialog && branchCreateDialogData && (
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-300 rounded-lg">
+          <div className="flex items-center mb-3">
+            <span className="text-xl mr-2">🔧</span>
+            <h3 className="text-md font-semibold text-blue-800">Branch Not Found</h3>
+          </div>
+          <p className="text-sm text-blue-700 mb-4">
+            The branch <strong>"{branchCreateDialogData.branchName}"</strong> does not exist in the remote repository <strong>"{branchCreateDialogData.repositoryUrl}"</strong>.
+          </p>
+          <p className="text-sm text-blue-700 mb-4">
+            Would you like to create this branch automatically?
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleCreateBranchAndSave}
+              disabled={savingAdvancedSettings}
+              className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+              {savingAdvancedSettings ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Creating & Saving...
+                </>
+              ) : (
+                "✅ Create Branch & Save"
+              )}
+            </button>
+            <button
+              onClick={handleCancelBranchCreate}
+              disabled={savingAdvancedSettings}
+              className="flex-1 bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              ❌ Cancel
             </button>
           </div>
         </div>
