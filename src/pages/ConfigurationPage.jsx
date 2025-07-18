@@ -152,6 +152,75 @@ function GitHubConfigPanel({
 
     setSavingAdvancedSettings(true);
     try {
+      // First, check if the branch exists in the remote repository
+      showStatusMessage('🔍 Checking if branch exists in remote repository...', false);
+      
+      const branchCheckResponse = await fetch('/api/config/github/branch/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repository_url: localRepositoryUrl.trim(),
+          branch_name: localBranchName.trim()
+        })
+      });
+
+      const branchCheckData = await branchCheckResponse.json();
+      
+      if (!branchCheckData.success) {
+        showStatusMessage('❌ Failed to check branch existence: ' + branchCheckData.error, true);
+        setSavingAdvancedSettings(false);
+        return;
+      }
+
+      // If branch doesn't exist, ask user if they want to create it
+      if (!branchCheckData.branch_exists) {
+        setSavingAdvancedSettings(false);
+        
+        const shouldCreate = confirm(
+          `The branch "${localBranchName.trim()}" does not exist in the remote repository "${localRepositoryUrl.trim()}".\n\n` +
+          `Would you like to create this branch automatically?\n\n` +
+          `Click "OK" to create the branch and save the configuration.\n` +
+          `Click "Cancel" to change the branch name.`
+        );
+
+        if (!shouldCreate) {
+          showStatusMessage('❌ Configuration not saved. Please choose an existing branch or a different branch name.', true);
+          return;
+        }
+
+        // User wants to create the branch
+        setSavingAdvancedSettings(true);
+        showStatusMessage('🔨 Creating branch in remote repository...', false);
+        
+        try {
+          const createBranchResponse = await fetch('/api/config/github/branch/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              repository_url: localRepositoryUrl.trim(),
+              branch_name: localBranchName.trim()
+            })
+          });
+
+          const createBranchData = await createBranchResponse.json();
+          
+          if (!createBranchData.success) {
+            showStatusMessage('❌ Failed to create branch: ' + createBranchData.error, true);
+            setSavingAdvancedSettings(false);
+            return;
+          }
+
+          showStatusMessage('✅ Branch created successfully! Now saving configuration...', false);
+        } catch (createError) {
+          showStatusMessage('❌ Error creating branch: ' + createError.message, true);
+          setSavingAdvancedSettings(false);
+          return;
+        }
+      } else {
+        showStatusMessage('✅ Branch exists in remote repository. Saving configuration...', false);
+      }
+
+      // Now save the configuration
       const response = await fetch('/api/config/update', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -172,7 +241,8 @@ function GitHubConfigPanel({
           branchName: localBranchName.trim(), 
           localPath: localPath.trim(),
           repositoryUrl: localRepositoryUrl.trim(),
-          filesToSync: localFilesToSync.trim()
+          filesToSync: localFilesToSync.trim(),
+          branchExisted: branchCheckData.branch_exists
         });
       } else {
         const errorData = await response.json();

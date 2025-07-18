@@ -1460,6 +1460,235 @@ def put_config(config_data: dict):
 
 # Nuevos endpoints para el manejo de configuración con app_config.json
 
+class BranchCheckRequest(BaseModel):
+    repository_url: str
+    branch_name: str
+
+@app.post("/api/config/github/branch/check")
+async def check_github_branch_exists(request: BranchCheckRequest):
+    """Check if a branch exists in the remote GitHub repository"""
+    try:
+        print("=== Checking GitHub Branch Existence ===")
+        
+        # Get GitHub credentials from secure storage
+        github_token = get_github_token()
+        if not github_token:
+            return {
+                "success": False,
+                "error": "GitHub token not found. Please configure and save GitHub credentials first.",
+                "branch_exists": False
+            }
+        
+        # Get GitHub config for username
+        github_config = get_github_config()
+        if not github_config:
+            return {
+                "success": False,
+                "error": "GitHub configuration not found. Please configure and save GitHub credentials first.",
+                "branch_exists": False
+            }
+        
+        repository_url = request.repository_url.strip()
+        branch_name = request.branch_name.strip()
+        
+        if not repository_url or not branch_name:
+            return {
+                "success": False,
+                "error": "Repository URL and branch name are required",
+                "branch_exists": False
+            }
+        
+        print(f"Checking if branch '{branch_name}' exists in repository '{repository_url}'...")
+        
+        # Create temporary directory for git operations
+        import tempfile
+        import shutil
+        
+        temp_dir = tempfile.mkdtemp(prefix="branch_check_")
+        
+        try:
+            # Initialize git repo
+            init_result = run_git_command(["git", "init"], temp_dir)
+            if not init_result["success"]:
+                return {
+                    "success": False,
+                    "error": f"Failed to initialize git: {init_result.get('error', 'Unknown error')}",
+                    "branch_exists": False
+                }
+            
+            # Set up remote with authentication
+            repo_url_with_auth = repository_url.replace(
+                "https://", f"https://{github_config['githubUsername']}:{github_token}@"
+            )
+            
+            remote_result = run_git_command(["git", "remote", "add", "origin", repo_url_with_auth], temp_dir)
+            if not remote_result["success"]:
+                return {
+                    "success": False,
+                    "error": f"Failed to add remote: {remote_result.get('error', 'Unknown error')}",
+                    "branch_exists": False
+                }
+            
+            # Check if remote branch exists
+            branch_check_result = run_git_command(["git", "ls-remote", "--heads", "origin", branch_name], temp_dir)
+            
+            if not branch_check_result["success"]:
+                return {
+                    "success": False,
+                    "error": f"Failed to check remote branches: {branch_check_result.get('error', 'Unknown error')}",
+                    "branch_exists": False
+                }
+            
+            # Check if the output contains the branch
+            branch_exists = bool(branch_check_result["output"].strip())
+            
+            print(f"Branch check result: exists={branch_exists}")
+            
+            return {
+                "success": True,
+                "branch_exists": branch_exists,
+                "branch_name": branch_name,
+                "repository_url": repository_url,
+                "message": f"Branch '{branch_name}' {'exists' if branch_exists else 'does not exist'} in remote repository"
+            }
+            
+        finally:
+            # Clean up temporary directory
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir, ignore_errors=True)
+        
+    except Exception as e:
+        print(f"Error checking branch existence: {e}")
+        return {
+            "success": False,
+            "error": f"Error checking branch existence: {str(e)}",
+            "branch_exists": False
+        }
+
+class BranchCreateRequest(BaseModel):
+    repository_url: str
+    branch_name: str
+
+@app.post("/api/config/github/branch/create")
+async def create_github_branch(request: BranchCreateRequest):
+    """Create a new branch in the remote GitHub repository"""
+    try:
+        print("=== Creating GitHub Branch ===")
+        
+        # Get GitHub credentials from secure storage
+        github_token = get_github_token()
+        if not github_token:
+            return {
+                "success": False,
+                "error": "GitHub token not found. Please configure and save GitHub credentials first."
+            }
+        
+        # Get GitHub config for username
+        github_config = get_github_config()
+        if not github_config:
+            return {
+                "success": False,
+                "error": "GitHub configuration not found. Please configure and save GitHub credentials first."
+            }
+        
+        repository_url = request.repository_url.strip()
+        branch_name = request.branch_name.strip()
+        
+        if not repository_url or not branch_name:
+            return {
+                "success": False,
+                "error": "Repository URL and branch name are required"
+            }
+        
+        print(f"Creating branch '{branch_name}' in repository '{repository_url}'...")
+        
+        # Create temporary directory for git operations
+        import tempfile
+        import shutil
+        
+        temp_dir = tempfile.mkdtemp(prefix="branch_create_")
+        
+        try:
+            # Initialize git repo
+            init_result = run_git_command(["git", "init"], temp_dir)
+            if not init_result["success"]:
+                return {
+                    "success": False,
+                    "error": f"Failed to initialize git: {init_result.get('error', 'Unknown error')}"
+                }
+            
+            # Set git config
+            run_git_command(["git", "config", "user.name", github_config["githubUsername"]], temp_dir)
+            run_git_command(["git", "config", "user.email", f"{github_config['githubUsername']}@users.noreply.github.com"], temp_dir)
+            
+            # Set up remote with authentication
+            repo_url_with_auth = repository_url.replace(
+                "https://", f"https://{github_config['githubUsername']}:{github_token}@"
+            )
+            
+            remote_result = run_git_command(["git", "remote", "add", "origin", repo_url_with_auth], temp_dir)
+            if not remote_result["success"]:
+                return {
+                    "success": False,
+                    "error": f"Failed to add remote: {remote_result.get('error', 'Unknown error')}"
+                }
+            
+            # Create an empty commit to initialize the branch
+            empty_file_path = os.path.join(temp_dir, "README.md")
+            with open(empty_file_path, "w") as f:
+                f.write(f"# Repository initialized with branch: {branch_name}\n")
+            
+            # Add and commit the file
+            add_result = run_git_command(["git", "add", "README.md"], temp_dir)
+            if not add_result["success"]:
+                return {
+                    "success": False,
+                    "error": f"Failed to add file: {add_result.get('error', 'Unknown error')}"
+                }
+            
+            commit_result = run_git_command(["git", "commit", "-m", f"Initial commit for branch {branch_name}"], temp_dir)
+            if not commit_result["success"]:
+                return {
+                    "success": False,
+                    "error": f"Failed to commit: {commit_result.get('error', 'Unknown error')}"
+                }
+            
+            # Create and push the branch
+            checkout_result = run_git_command(["git", "checkout", "-b", branch_name], temp_dir)
+            if not checkout_result["success"]:
+                return {
+                    "success": False,
+                    "error": f"Failed to create branch: {checkout_result.get('error', 'Unknown error')}"
+                }
+            
+            push_result = run_git_command(["git", "push", "-u", "origin", branch_name], temp_dir)
+            if not push_result["success"]:
+                return {
+                    "success": False,
+                    "error": f"Failed to push branch: {push_result.get('error', 'Unknown error')}"
+                }
+            
+            print(f"✅ Branch '{branch_name}' created successfully")
+            
+            return {
+                "success": True,
+                "branch_name": branch_name,
+                "repository_url": repository_url,
+                "message": f"Branch '{branch_name}' created successfully in remote repository"
+            }
+            
+        finally:
+            # Clean up temporary directory
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir, ignore_errors=True)
+        
+    except Exception as e:
+        print(f"Error creating branch: {e}")
+        return {
+            "success": False,
+            "error": f"Error creating branch: {str(e)}"
+        }
+
 @app.get("/api/config/exists")
 async def check_config_exists(file: str = Query(config_handler.DEFAULT_CONFIG_FILENAME)):
     """Verifica si existe un archivo de configuración específico"""
@@ -1738,9 +1967,6 @@ async def get_prediction_logs(request: Request, limit: int = 1000):
         raise HTTPException(status_code=500, detail=f"Failed to read prediction logs: {str(e)}")
 
 # Endpoint the push y pull para github
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import subprocess
 
 class GitRequest(BaseModel):
     github_token: str
