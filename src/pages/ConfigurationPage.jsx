@@ -521,8 +521,8 @@ export default function ConfigurationPage() {
     if (fromSecurityWarning) {
       return "security";
     }
-    // Otherwise, recover from localStorage or use "backend" as default
-    return localStorage.getItem('kyndryl_active_panel') || "backend";
+    // Otherwise, recover from localStorage or use "extension" as default (first setup step)
+    return localStorage.getItem('kyndryl_active_panel') || "extension";
   });
 
   // Debug logging (after activePanel is declared)
@@ -1063,6 +1063,24 @@ export default function ConfigurationPage() {
           <h1 className="text-2xl font-bold text-kyndryl-orange mb-6">Configuration</h1>
           
           <nav className="space-y-2">
+            {/* Extension Settings - New first panel */}
+            <button
+              onClick={() => changeActivePanel("extension")}
+              className={`w-full text-left p-3 rounded-lg flex items-center justify-between transition-colors ${
+                activePanel === "extension" 
+                  ? "bg-kyndryl-orange text-white" 
+                  : "hover:bg-gray-100 text-gray-700"
+              }`}
+            >
+              <div className="flex items-center">
+                <span className="text-lg mr-3">🔧</span>
+                <span className="font-medium">Extension Settings</span>
+              </div>
+              {!editedConfigs.extension && (
+                <span className="text-red-500 text-xl font-bold">!</span>
+              )}
+            </button>
+
             {/* Backend Configuration */}
             <button
               onClick={() => changeActivePanel("backend")}
@@ -1073,7 +1091,7 @@ export default function ConfigurationPage() {
               }`}
             >
               <div className="flex items-center">
-                <span className="text-lg mr-3">🔧</span>
+                <span className="text-lg mr-3">�️</span>
                 <span className="font-medium">Backend Server</span>
               </div>
               {!editedConfigs.backend && (
@@ -1197,13 +1215,15 @@ export default function ConfigurationPage() {
             </div>
           )}
 
-          {/* Initial Verification Panel - Always shown at the top */}
-          <InitialVerificationPanel 
+          {/* Dynamic Content Based on Active Panel */}
+          {activePanel === "extension" && <ExtensionSettingsPanel 
             environmentStatus={environmentStatus}
             loadingEnvironmentStatus={loadingEnvironmentStatus}
-          />
+            showStatusMessage={showStatusMessage}
+            markConfigAsEdited={markConfigAsEdited}
+            changeActivePanel={changeActivePanel}
+          />}
 
-          {/* Dynamic Content Based on Active Panel */}
           {activePanel === "backend" && <BackendConfigPanel 
             localBackendUrl={localBackendUrl}
             setLocalBackendUrl={setLocalBackendUrl}
@@ -1300,42 +1320,78 @@ export default function ConfigurationPage() {
   );
 }
 
-// Individual Panel Components
-function InitialVerificationPanel({ environmentStatus, loadingEnvironmentStatus }) {
+// Extension Settings Panel Component
+function ExtensionSettingsPanel({ environmentStatus, loadingEnvironmentStatus, showStatusMessage, markConfigAsEdited, changeActivePanel }) {
+  const [saving, setSaving] = useState(false);
+
+  const handleSaveInitialConfig = async () => {
+    setSaving(true);
+    try {
+      // Create initial app_config.json from environment variables
+      const response = await fetch('/api/config/initialize-from-environment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        showStatusMessage('✅ Initial configuration created successfully! Moving to Backend Server setup...');
+        await markConfigAsEdited("extension");
+        
+        // Automatically move to the next step (Backend Server) after a short delay
+        setTimeout(() => {
+          changeActivePanel("backend");
+        }, 2000);
+      } else {
+        showStatusMessage('❌ Failed to create initial configuration: ' + (data.error || 'Unknown error'), true);
+      }
+    } catch (error) {
+      showStatusMessage('❌ Error creating initial configuration: ' + error.message, true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const hasRequiredVariables = environmentStatus.some(env => env.status === 'success');
+  const hasAllRequiredVariables = environmentStatus.filter(env => env.required).every(env => env.status === 'success');
+
   if (loadingEnvironmentStatus) {
     return (
-      <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200 mb-6">
+      <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200">
         <div className="flex items-center mb-4">
-          <span className="text-2xl mr-3">🔍</span>
-          <h2 className="text-2xl font-bold text-kyndryl-orange">Initial Verification</h2>
+          <span className="text-2xl mr-3">🔧</span>
+          <h2 className="text-2xl font-bold text-kyndryl-orange">Extension Settings</h2>
         </div>
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kyndryl-orange"></div>
-          <span className="ml-3 text-gray-600">Loading environment status...</span>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kyndryl-orange mr-3"></div>
+          <span className="text-gray-600">Loading environment variables...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200 mb-6">
-      <div className="flex items-center mb-4">
-        <span className="text-2xl mr-3">🔍</span>
-        <h2 className="text-2xl font-bold text-kyndryl-orange">Initial Verification</h2>
+    <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200">
+      <div className="flex items-center mb-6">
+        <span className="text-2xl mr-3">🔧</span>
+        <h2 className="text-2xl font-bold text-kyndryl-orange">Extension Settings</h2>
       </div>
       
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <h3 className="text-md font-semibold text-blue-800 mb-2">Environment Configuration</h3>
         <p className="text-sm text-blue-700">
-          Environment variables detected from extension properties. Green indicates configured values, 
-          red indicates missing required values.
+          These settings are automatically detected from your VS Code extension properties. 
+          Green indicates configured values, red indicates missing required values.
         </p>
       </div>
 
-      <div className="space-y-3">
+      {/* Environment Variables Status */}
+      <div className="space-y-3 mb-8">
         {environmentStatus.map((env, index) => (
           <div 
             key={env.variable}
-            className={`flex items-center justify-between p-3 rounded-lg border ${
+            className={`flex items-center justify-between p-4 rounded-lg border ${
               env.status === 'success' 
                 ? 'bg-green-50 border-green-200' 
                 : env.status === 'warning'
@@ -1344,7 +1400,7 @@ function InitialVerificationPanel({ environmentStatus, loadingEnvironmentStatus 
             }`}
           >
             <div className="flex items-center">
-              <span className={`text-lg mr-3 ${
+              <span className={`text-xl mr-4 ${
                 env.status === 'success' 
                   ? 'text-green-600' 
                   : env.status === 'warning'
@@ -1354,7 +1410,7 @@ function InitialVerificationPanel({ environmentStatus, loadingEnvironmentStatus 
                 {env.status === 'success' ? '✅' : env.status === 'warning' ? '⚠️' : '❌'}
               </span>
               <div>
-                <div className="font-medium text-gray-900">
+                <div className="font-semibold text-gray-900 text-lg">
                   {env.variable}
                 </div>
                 <div className={`text-sm ${
@@ -1368,7 +1424,11 @@ function InitialVerificationPanel({ environmentStatus, loadingEnvironmentStatus 
                 </div>
               </div>
             </div>
-            <div className="text-xs text-gray-500">
+            <div className={`text-xs px-2 py-1 rounded ${
+              env.required 
+                ? 'bg-red-100 text-red-800 border border-red-200' 
+                : 'bg-gray-100 text-gray-600 border border-gray-200'
+            }`}>
               {env.required ? 'Required' : 'Optional'}
             </div>
           </div>
@@ -1376,12 +1436,90 @@ function InitialVerificationPanel({ environmentStatus, loadingEnvironmentStatus 
       </div>
 
       {environmentStatus.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-gray-500 mb-8">
           <span className="text-4xl mb-2 block">📋</span>
-          <p>No environment variables detected</p>
-          <p className="text-sm">Manual configuration will be required</p>
+          <p className="text-lg font-medium">No environment variables detected</p>
+          <p className="text-sm">Manual configuration will be required in the following steps</p>
         </div>
       )}
+
+      {/* Configuration Status Summary */}
+      {environmentStatus.length > 0 && (
+        <div className={`p-4 rounded-lg border mb-6 ${
+          hasAllRequiredVariables 
+            ? 'bg-green-50 border-green-200' 
+            : hasRequiredVariables
+            ? 'bg-yellow-50 border-yellow-200'
+            : 'bg-red-50 border-red-200'
+        }`}>
+          <div className="flex items-center mb-2">
+            <span className={`text-xl mr-3 ${
+              hasAllRequiredVariables 
+                ? 'text-green-600' 
+                : hasRequiredVariables
+                ? 'text-yellow-600'
+                : 'text-red-600'
+            }`}>
+              {hasAllRequiredVariables ? '✅' : hasRequiredVariables ? '⚠️' : '❌'}
+            </span>
+            <h3 className={`font-semibold ${
+              hasAllRequiredVariables 
+                ? 'text-green-800' 
+                : hasRequiredVariables
+                ? 'text-yellow-800'
+                : 'text-red-800'
+            }`}>
+              Configuration Status
+            </h3>
+          </div>
+          <p className={`text-sm ${
+            hasAllRequiredVariables 
+              ? 'text-green-700' 
+              : hasRequiredVariables
+              ? 'text-yellow-700'
+              : 'text-red-700'
+          }`}>
+            {hasAllRequiredVariables 
+              ? 'All required environment variables are configured. Ready to create initial configuration.'
+              : hasRequiredVariables
+              ? 'Some environment variables are configured. You can proceed, but some features may require manual setup.'
+              : 'No environment variables are configured. Manual configuration will be required for all features.'
+            }
+          </p>
+        </div>
+      )}
+
+      {/* Save Button */}
+      <div className="flex flex-col space-y-4">
+        <button
+          onClick={handleSaveInitialConfig}
+          disabled={saving}
+          className={`w-full px-6 py-3 rounded-lg font-semibold text-white transition-colors flex items-center justify-center ${
+            saving
+              ? 'bg-gray-400 cursor-not-allowed'
+              : hasRequiredVariables
+              ? 'bg-green-600 hover:bg-green-700'
+              : 'bg-blue-600 hover:bg-blue-700'
+          }`}
+        >
+          {saving ? (
+            <>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+              Creating Initial Configuration...
+            </>
+          ) : (
+            <>
+              <span className="text-xl mr-2">💾</span>
+              Save & Create Initial Configuration
+            </>
+          )}
+        </button>
+        
+        <p className="text-sm text-gray-600 text-center">
+          This will create the initial app_config.json file based on your environment variables
+          and automatically move you to the next setup step.
+        </p>
+      </div>
     </div>
   );
 }

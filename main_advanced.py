@@ -1196,6 +1196,137 @@ def get_environment_status():
             "timestamp": datetime.now().isoformat()
         }
 
+@app.post("/api/config/initialize-from-environment")
+def initialize_from_environment():
+    """Initialize app_config.json from environment variables"""
+    try:
+        print("=== Initializing Configuration from Environment ===")
+        
+        # Check if app_config.json already exists
+        if config_exists():
+            print("Configuration file already exists")
+            return {
+                "success": False,
+                "error": "Configuration file already exists. Use the reload endpoint to update from environment."
+            }
+        
+        # Read environment variables
+        env_config = {
+            'git_repo': os.getenv('DX_EXT_CFG_GIT_REPO', ''),
+            'git_token': os.getenv('DX_EXT_CFG_GIT_TOKEN', ''),
+            'git_user': os.getenv('DX_EXT_CFG_GIT_USER', ''),
+            'git_branch': os.getenv('DX_EXT_CFG_GIT_BRANCH', 'main'),
+            'gui_password': os.getenv('DX_EXT_GUI_PASSWORD', ''),
+            'gui_user': os.getenv('DX_EXT_GUI_USER', ''),
+            'account_code': os.getenv('DX_ENV_OU_GSMA_CODE', '')
+        }
+        
+        # Create initial configuration
+        initial_config = get_default_config()
+        config_updated = False
+        
+        # Configure GitHub settings if available
+        if env_config['git_repo'] and env_config['git_token'] and env_config['git_user']:
+            print("Adding GitHub configuration...")
+            
+            # Parse repository URL
+            repo_url = env_config['git_repo']
+            if not repo_url.startswith('https://'):
+                repo_url = f"https://github.com/{repo_url}"
+            
+            # Use branch from environment variable, default to 'main' if not set
+            branch_name = env_config['git_branch'] if env_config['git_branch'] else 'main'
+            
+            # Update GitHub configuration
+            initial_config['github'].update({
+                'githubUsername': env_config['git_user'],
+                'repositoryUrl': repo_url,
+                'branchName': branch_name,
+                'localPath': './app_data/',
+                'filesToSync': '''./app_data/config/app_config.json
+./app_data/config/accounts.json
+./app_data/config/component_list.json
+./app_data/config/data.json
+./app_data/logs/app_log.log
+./app_data/logs/predictions.log'''
+            })
+            
+            # Save GitHub token securely (but don't store in config file)
+            save_github_token(env_config['git_token'])
+            config_updated = True
+            print(f"✅ GitHub configured: {repo_url} (branch: {branch_name})")
+        
+        # Configure account code if available
+        if env_config['account_code']:
+            print("Adding account code...")
+            initial_config['app']['account_code'] = env_config['account_code']
+            config_updated = True
+            print(f"✅ Account code configured: {env_config['account_code']}")
+        
+        # Configure GUI user if available
+        if env_config['gui_user'] and env_config['gui_password']:
+            print("Creating GUI user...")
+            
+            # Create new user
+            new_user = {
+                "username": env_config['gui_user'],
+                "password_hash": hash_password(env_config['gui_password']),
+                "is_active": True,
+                "is_default": False,
+                "created_at": datetime.now().isoformat(),
+                "last_login": None,
+                "login_attempts": 0
+            }
+            update_user(env_config['gui_user'], new_user)
+            print(f"✅ Created user: {env_config['gui_user']}")
+        
+        # Mark as configured from environment
+        initial_config["last_modified"] = datetime.now().isoformat()
+        initial_config["configured_from_env"] = True
+        initial_config["extension_setup_complete"] = True
+        
+        # Save the initial configuration
+        if save_config(initial_config):
+            print("✅ Initial configuration saved successfully")
+            
+            # Try auto-pull if git config is available
+            if env_config['git_repo'] and env_config['git_token'] and env_config['git_user']:
+                print("Attempting auto-pull after initial configuration...")
+                try:
+                    auto_pull_result = perform_auto_pull()
+                    if auto_pull_result['success']:
+                        print(f"✅ Auto-pull successful: {auto_pull_result.get('message', '')}")
+                        
+                        # Update config with any additional data from repository
+                        try:
+                            update_config_with_environment_data(env_config)
+                            print("✅ Configuration updated with repository data")
+                        except Exception as update_error:
+                            print(f"⚠️  Failed to update with repository data: {update_error}")
+                    else:
+                        print(f"⚠️  Auto-pull failed: {auto_pull_result.get('message', '')}")
+                except Exception as pull_error:
+                    print(f"⚠️  Auto-pull error: {pull_error}")
+            
+            return {
+                "success": True,
+                "message": "Initial configuration created successfully from environment variables",
+                "config_updated": config_updated
+            }
+        else:
+            print("❌ Failed to save initial configuration")
+            return {
+                "success": False,
+                "error": "Failed to save initial configuration file"
+            }
+            
+    except Exception as e:
+        print(f"❌ Error initializing from environment: {e}")
+        return {
+            "success": False,
+            "error": f"Error initializing configuration: {str(e)}"
+        }
+
 @app.post("/api/config/reload-environment")
 def reload_environment_config():
     """Force reload configuration from environment variables"""
