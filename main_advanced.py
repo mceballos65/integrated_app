@@ -92,6 +92,7 @@ def load_environment_config():
     
     if has_git_config or has_gui_config or env_config['account_code']:
         try:
+            # Only configure credentials, don't create app_config.json yet
             apply_environment_config(env_config)
             
             # After applying config, try to do auto-pull if git config is complete
@@ -101,6 +102,14 @@ def load_environment_config():
                     auto_pull_result = perform_auto_pull()
                     if auto_pull_result['success']:
                         print(f"✅ Auto-pull successful: {auto_pull_result.get('message', 'Files synchronized')}")
+                        
+                        # After successful auto-pull, create/update app_config.json with environment data
+                        try:
+                            update_config_with_environment_data(env_config)
+                            print("✅ Configuration updated with environment data")
+                        except Exception as update_error:
+                            print(f"⚠️  Failed to update config with environment data: {update_error}")
+                        
                     else:
                         print(f"⚠️  Auto-pull failed: {auto_pull_result.get('message', 'Unknown error')}")
                 except Exception as pull_error:
@@ -118,13 +127,12 @@ def apply_environment_config(env_config):
     """Apply the environment configuration to the system"""
     print("=== Applying Environment Configuration ===")
     
-    # Load existing config or create default
-    current_config = load_config() or get_default_config()
-    config_updated = False
-    
-    # Configure GitHub settings if available
+    # Configure GitHub settings if available (but don't save to app_config.json yet)
     if env_config['git_repo'] and env_config['git_token'] and env_config['git_user']:
-        print("Configuring GitHub integration...")
+        print("Configuring GitHub credentials...")
+        
+        # Save GitHub token securely (this doesn't create app_config.json)
+        save_github_token(env_config['git_token'])
         
         # Parse repository URL to extract owner/repo and set branch
         repo_url = env_config['git_repo']
@@ -134,31 +142,7 @@ def apply_environment_config(env_config):
         # Use branch from environment variable, default to 'main' if not set
         branch_name = env_config['git_branch'] if env_config['git_branch'] else 'main'
         
-        # Update GitHub configuration
-        current_config['github'].update({
-            'githubUsername': env_config['git_user'],
-            'repositoryUrl': repo_url,
-            'branchName': branch_name,
-            'localPath': './app_data/',
-            'filesToSync': '''./app_data/config/app_config.json
-./app_data/config/accounts.json
-./app_data/config/component_list.json
-./app_data/config/data.json
-./app_data/logs/app_log.log
-./app_data/logs/predictions.log'''
-        })
-        
-        # Save GitHub token securely
-        save_github_token(env_config['git_token'])
-        config_updated = True
-        print(f"✅ GitHub configured: {repo_url} (branch: {branch_name})")
-    
-    # Configure account code if available
-    if env_config['account_code']:
-        print("Configuring account code...")
-        current_config['app']['account_code'] = env_config['account_code']
-        config_updated = True
-        print(f"✅ Account code configured: {env_config['account_code']}")
+        print(f"✅ GitHub credentials configured for: {repo_url} (branch: {branch_name})")
     
     # Configure GUI user if available
     if env_config['gui_user'] and env_config['gui_password']:
@@ -188,16 +172,74 @@ def apply_environment_config(env_config):
             update_user(env_config['gui_user'], new_user)
             print(f"✅ Created new user: {env_config['gui_user']}")
     
-    # Save configuration if updated
-    if config_updated:
-        current_config["last_modified"] = datetime.now().isoformat()
-        current_config["configured_from_env"] = True
+    print("=== Environment Credentials Configured (app_config.json will come from repository) ===")
+
+def update_config_with_environment_data(env_config):
+    """Update the app_config.json file with environment data after auto-pull"""
+    try:
+        print("=== Updating Configuration with Environment Data ===")
         
-        if save_config(current_config):
-            print("✅ Configuration saved successfully")
-        else:
-            print("❌ Failed to save configuration")
-            raise Exception("Failed to save configuration")
+        # Load the config that came from the repository
+        current_config = load_config()
+        if not current_config:
+            print("❌ No configuration file found after auto-pull")
+            return False
+        
+        config_updated = False
+        
+        # Configure GitHub settings if available
+        if env_config['git_repo'] and env_config['git_token'] and env_config['git_user']:
+            print("Updating GitHub configuration...")
+            
+            # Parse repository URL to extract owner/repo and set branch
+            repo_url = env_config['git_repo']
+            if not repo_url.startswith('https://'):
+                repo_url = f"https://github.com/{repo_url}"
+            
+            # Use branch from environment variable, default to 'main' if not set
+            branch_name = env_config['git_branch'] if env_config['git_branch'] else 'main'
+            
+            # Update GitHub configuration
+            current_config['github'].update({
+                'githubUsername': env_config['git_user'],
+                'repositoryUrl': repo_url,
+                'branchName': branch_name,
+                'localPath': './app_data/',
+                'filesToSync': '''./app_data/config/app_config.json
+./app_data/config/accounts.json
+./app_data/config/component_list.json
+./app_data/config/data.json
+./app_data/logs/app_log.log
+./app_data/logs/predictions.log'''
+            })
+            
+            config_updated = True
+            print(f"✅ GitHub configured: {repo_url} (branch: {branch_name})")
+        
+        # Configure account code if available
+        if env_config['account_code']:
+            print("Updating account code...")
+            current_config['app']['account_code'] = env_config['account_code']
+            config_updated = True
+            print(f"✅ Account code configured: {env_config['account_code']}")
+        
+        # Save configuration if updated
+        if config_updated:
+            current_config["last_modified"] = datetime.now().isoformat()
+            current_config["configured_from_env"] = True
+            
+            if save_config(current_config):
+                print("✅ Configuration updated and saved successfully")
+                return True
+            else:
+                print("❌ Failed to save updated configuration")
+                return False
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error updating configuration with environment data: {e}")
+        return False
     
     print("=== Environment Configuration Applied ===")
 
