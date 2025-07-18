@@ -50,39 +50,7 @@ class UserApiService {
 
   // Authentication
   async login(username, password) {
-    // Intentamos cargar la configuración del backend primero
-    let adminUserDisabled = false;
-    try {
-      // Hacemos una solicitud directa para obtener la configuración actual
-      const configResponse = await fetch(`${this.getBaseUrl()}${'/api/config/load'}`);
-      if (configResponse.ok) {
-        const configData = await configResponse.json();
-        const config = configData.config || configData;
-        adminUserDisabled = config?.security?.admin_user_disabled || false;
-      } else {
-        // Si no podemos cargar del backend, intentamos usar la configuración de respaldo
-        const fallbackConfig = localStorage.getItem('kyndryl_fallback_config');
-        if (fallbackConfig) {
-          const parsedConfig = JSON.parse(fallbackConfig);
-          adminUserDisabled = parsedConfig?.security?.admin_user_disabled || false;
-        }
-      }
-    } catch (error) {
-      console.error("Error al obtener la configuración para login:", error);
-      // Si hay error, asumimos que el admin no está deshabilitado para permitir el acceso
-    }
-    
     console.log('Login attempt by:', username);
-    console.log('Admin disabled status:', adminUserDisabled);
-    
-    // The admin user can be in two states:
-    // 1. Disabled via security settings (adminUserDisabled) - blocks all login attempts
-    // 2. Inactive in user management (is_active=false) - can be toggled in UI
-    // Both conditions are independent - security setting takes precedence
-    if (username.toLowerCase() === 'admin' && adminUserDisabled === true) {
-      console.warn('Admin login attempt blocked due to security setting');
-      throw new Error('The default admin user has been disabled for security reasons. Please use a different administrator account.');
-    }
 
     const response = await this.makeRequest('/api/users/login', {
       method: 'POST',
@@ -210,13 +178,6 @@ class UserApiService {
 
   isAdmin() {
     const user = this.getCurrentUser();
-    // Get config to check if admin is disabled
-    const config = JSON.parse(localStorage.getItem('appConfig') || '{}');
-    
-    // If admin is disabled in config, only other admin users can be admins
-    if (config.adminUserDisabled === true && user && user.username === 'admin') {
-      return false;
-    }
     
     return user && (user.username === 'admin' || user.is_admin === true);
   }

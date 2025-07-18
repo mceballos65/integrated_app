@@ -21,39 +21,13 @@ export function AuthProvider({ children }) {
     config: state.config,
     configLoaded: state.configLoaded
   }));
-  
-  const adminUserDisabled = config?.security?.admin_user_disabled || false;
-  const debugRequiresAuth = config?.security?.debug_requires_auth || false;
 
   // Initialize auth state
   useEffect(() => {
     const currentUser = userApiService.getCurrentUser();
     setUser(currentUser);
     setIsLoading(false);
-    
-    // Check for security warnings
-    const debugIsPublic = localStorage.getItem('debugRequiresAuth') !== 'true' && !debugRequiresAuth;
-    const adminUserEnabled = !adminUserDisabled; // Admin user is enabled when admin_user_disabled is false
-    
-    console.log('Security check:', {
-      adminUserDisabled,
-      debugRequiresAuth,
-      debugIsPublic,
-      adminUserEnabled,
-      configLoaded,
-      config
-    });
-    
-    if (adminUserEnabled && debugIsPublic) {
-      setSecurityWarning('Multiple security issues: 1) Default administrator account is enabled. 2) Debug page is publicly accessible. Please review security settings.');
-    } else if (adminUserEnabled) {
-      setSecurityWarning('Default administrator account is enabled. For security reasons, please disable it and create a new administrator account.');
-    } else if (debugIsPublic) {
-      setSecurityWarning('Debug page is publicly accessible. For security reasons, please restrict access to authenticated users only.');
-    } else {
-      setSecurityWarning(null);
-    }
-  }, [adminUserDisabled, debugRequiresAuth, configLoaded]);
+  }, [configLoaded]);
 
   // Login function
   const login = async (username, password) => {

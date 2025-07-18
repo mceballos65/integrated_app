@@ -16,9 +16,6 @@ export default function PredictionPage() {
   const { config } = useConfigStore();
   const { securityWarning } = useAuth();
   
-  // Security check - same as LogsPage
-  const adminUserDisabled = config?.security?.admin_user_disabled || false;
-  
   // If there are security warnings, block access to this critical page
   if (securityWarning) {
     return (

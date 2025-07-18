@@ -20,8 +20,6 @@ const defaultConfig = {
     max_entries: 50000
   },
   security: {
-    admin_user_disabled: false,
-    debug_requires_auth: false,
     admin_username: "",
     admin_password_hash: ""
   },
@@ -54,13 +52,6 @@ const useConfigStore = create((set, get) => ({
   },
   get logFileLocation() { return get().config?.logging?.file_location || "./app_data/logs/predictions.log"; },
   get maxLogEntries() { return get().config?.logging?.max_entries || 50000; },
-  get adminUserDisabled() { return get().config?.security?.admin_user_disabled || false; },
-  get debugRequiresAuth() { 
-    // Check config first, then fall back to localStorage for backward compatibility
-    const configValue = get().config?.security?.debug_requires_auth || false;
-    const localStorageValue = localStorage.getItem('debugRequiresAuth') === 'true';
-    return configValue || localStorageValue; 
-  },
   get adminUsername() { return get().config?.security?.admin_username || ""; },
   get githubToken() { return get().config?.github?.token || ""; },
   get githubRepoUrl() { return get().config?.github?.repositoryUrl || ""; },
@@ -96,10 +87,6 @@ const useConfigStore = create((set, get) => ({
         localStorage.removeItem('debugDisabled');
         
         // Ensure debugRequiresAuth in localStorage matches backend config
-        if (response.config?.security?.debug_requires_auth !== undefined) {
-          localStorage.setItem('debugRequiresAuth', 
-            response.config.security.debug_requires_auth ? 'true' : 'false');
-        }
         
         return response.config;
       } else if (response) {
@@ -114,12 +101,7 @@ const useConfigStore = create((set, get) => ({
         // Clear any legacy localStorage configuration items to avoid conflicts
         localStorage.removeItem('kyndryl_app_config');
         localStorage.removeItem('debugDisabled');
-        
-        // Ensure debugRequiresAuth in localStorage matches backend config
-        if (response?.security?.debug_requires_auth !== undefined) {
-          localStorage.setItem('debugRequiresAuth', 
-            response.security.debug_requires_auth ? 'true' : 'false');
-        }
+        localStorage.removeItem('debugRequiresAuth');
         
         return response;
       } else {
@@ -200,14 +182,6 @@ const useConfigStore = create((set, get) => ({
     await get().updateConfig({ logging: { max_entries: entries } });
   },
   
-  setAdminUserDisabled: async (disabled) => {
-    await get().updateConfig({ security: { admin_user_disabled: disabled } });
-  },
-  
-  setDebugRequiresAuth: async (requires) => {
-    await get().updateConfig({ security: { debug_requires_auth: requires } });
-  },
-
   setGithubSettings: async (githubConfig) => {
     await get().updateConfig({ github: githubConfig });
   },

@@ -21,8 +21,6 @@ DEFAULT_CONFIG = {
         "max_entries": 50000
     },
     "security": {
-        "admin_user_disabled": False,
-        "debug_requires_auth": False,
         "admin_username": "",
         "admin_password_hash": ""
     },

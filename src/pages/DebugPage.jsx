@@ -20,15 +20,9 @@ const DebugPage = () => {
     const stored = localStorage.getItem('adminCreationEnabled');
     return stored === null ? true : stored === 'true';
   });
-  const [debugRequiresAuth, setDebugRequiresAuth] = useState(() => {
-    // Check if debug page requires authentication from localStorage (fallback)
-    return localStorage.getItem('debugRequiresAuth') === 'true';
-  });
   const [showSecurityWarning, setShowSecurityWarning] = useState(false);
   const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
 
-  // Get debugRequiresAuth from the config store
-  const storeDebugRequiresAuth = useConfigStore(state => state.debugRequiresAuth);
   const configLoaded = useConfigStore(state => state.configLoaded);
   const loadConfig = useConfigStore(state => state.loadConfig);
   
@@ -60,17 +54,6 @@ const DebugPage = () => {
       loadConfig();
     }
   }, [configLoaded, loadConfig]);
-  
-  // Sync debugRequiresAuth with the store value when it changes
-  useEffect(() => {
-    if (configLoaded) {
-      console.log('Config loaded, syncing debug settings');
-      // Update local state from store
-      setDebugRequiresAuth(storeDebugRequiresAuth);
-      // Keep localStorage in sync but only as fallback
-      localStorage.setItem('debugRequiresAuth', storeDebugRequiresAuth ? 'true' : 'false');
-    }
-  }, [storeDebugRequiresAuth, configLoaded]);
   
   // Effect to check backend availability periodically
   useEffect(() => {
@@ -202,52 +185,6 @@ const DebugPage = () => {
       setShowSecurityWarning(true);
     }
   };
-  
-  const toggleDebugAccess = async () => {
-    const newValue = !debugRequiresAuth;
-    
-    // Show warning if restricting access while not logged in
-    if (newValue && !isUserLoggedIn) {
-      if (confirm('⚠️ Warning: If you restrict access without being logged in, you will lose access to this page. Continue?')) {
-        try {
-          // Update localStorage
-          localStorage.setItem('debugRequiresAuth', 'true');
-          setDebugRequiresAuth(true);
-          
-          // Update backend config
-          const { updateConfig } = await import('../configStorage');
-          await updateConfig({
-            security: { debug_requires_auth: true }
-          });
-          
-          alert('Debug page access is now restricted to authenticated users.');
-          window.location.reload();
-        } catch (error) {
-          console.error('Failed to update debug access setting:', error);
-          alert(`Failed to restrict access: ${error.message}`);
-        }
-      }
-    } else {
-      try {
-        // Update localStorage
-        localStorage.setItem('debugRequiresAuth', newValue ? 'true' : 'false');
-        setDebugRequiresAuth(newValue);
-        
-        // Update backend config
-        const { updateConfig } = await import('../configStorage');
-        await updateConfig({
-          security: { debug_requires_auth: newValue }
-        });
-        
-        alert(newValue ? 
-          'Debug page access is now restricted to authenticated users.' : 
-          'Debug page is now publicly accessible.');
-      } catch (error) {
-        console.error('Failed to update debug access setting:', error);
-        alert(`Failed to update access setting: ${error.message}`);
-      }
-    }
-  };
 
   const updateApiUrl = async () => {
     try {
@@ -318,37 +255,15 @@ const DebugPage = () => {
             </button>
             
             <button
-              onClick={toggleDebugAccess}
-              className={`p-3 text-left border rounded hover:bg-opacity-80 ${
-                debugRequiresAuth 
-                  ? 'border-green-200 hover:bg-green-50 text-green-700' 
-                  : 'border-red-200 hover:bg-red-50 text-red-700'
-              }`}
-            >
-              <div className="font-medium">
-                {debugRequiresAuth ? '🔓 Make Debug Page Public' : '🔒 Restrict Debug Access'}
-              </div>
-              <div className={`text-sm ${debugRequiresAuth ? 'text-green-500' : 'text-red-500'}`}>
-                {debugRequiresAuth ? 'Allow access without login' : 'Require authentication'}
-              </div>
-            </button>
-            
-            <button
               onClick={() => {
                 if (confirm('¿Estás seguro que deseas restringir el acceso a la página Debug? Después de esto, los usuarios necesitarán iniciar sesión para acceder.')) {
-                  // Set flag to require authentication for Debug page
-                  localStorage.setItem('debugRequiresAuth', 'true');
-                  setDebugRequiresAuth(true);
                   alert('Acceso restringido. Ahora los usuarios necesitan iniciar sesión para acceder a la página Debug.');
                 }
               }}
-              className="p-3 text-left border border-red-200 rounded hover:bg-red-50 text-red-700"
-              disabled={debugRequiresAuth}
+              className="p-3 text-left border border-gray-200 rounded hover:bg-gray-50"
             >
-              <div className="font-medium">🔒 Disable Public Debug</div>
-              <div className="text-sm text-red-500">
-                {debugRequiresAuth ? 'Access already restricted' : 'Require login for this page'}
-              </div>
+              <div className="font-medium">🔒 Security Info</div>
+              <div className="text-sm text-gray-500">Debug page security</div>
             </button>
           </div>
         </div>
@@ -375,36 +290,6 @@ const DebugPage = () => {
           </div>
         )} */}
         
-        {/* Debug Page Access Status */}
-        <div className={`border rounded-lg p-4 mb-6 ${
-          debugRequiresAuth 
-            ? 'bg-green-50 border-green-300' 
-            : 'bg-yellow-50 border-yellow-300'
-        }`}>
-          <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
-            {debugRequiresAuth 
-              ? <><span className="text-green-600">🔒</span><span className="text-green-800">Restricted Access</span></>
-              : <><span className="text-yellow-600">⚠️</span><span className="text-yellow-800">Public Access</span></>
-            }
-          </h2>
-          <div className="text-sm mb-3">
-            {debugRequiresAuth
-              ? <span className="text-green-700">This debug page is currently restricted to authenticated users only.</span>
-              : <span className="text-yellow-700">This debug page is currently public and accessible without authentication.</span>
-            }
-          </div>
-          <button
-            onClick={toggleDebugAccess}
-            className={`px-4 py-2 text-white rounded text-sm ${
-              debugRequiresAuth 
-                ? 'bg-blue-600 hover:bg-blue-700' 
-                : 'bg-red-600 hover:bg-red-700'
-            }`}
-          >
-            {debugRequiresAuth ? '🔓 Make Debug Page Public' : '🔒 Restrict Debug Access'}
-          </button>
-        </div>
-
         {/* Page Load Status */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <h2 className="text-lg font-semibold text-blue-800 mb-2">Page Status</h2>
@@ -600,16 +485,6 @@ const DebugPage = () => {
                 </div>
                 <div><span className="font-medium">Debug Mode:</span> <span className="text-yellow-600">⚠️ ACTIVE</span></div>
                 <div><span className="font-medium">Environment:</span> Development</div>
-                <div>
-                  <span className="font-medium">Debug Page Access:</span> 
-                  <span className={`ml-2 px-2 py-1 rounded text-xs ${
-                    debugRequiresAuth 
-                      ? 'bg-red-100 text-red-800' 
-                      : 'bg-green-100 text-green-800'
-                  }`}>
-                    {debugRequiresAuth ? '🔒 RESTRICTED' : '🔓 PUBLIC'}
-                  </span>
-                </div>
                 <div>
                   <span className="font-medium">Login Status:</span> 
                   <span className={`ml-2 px-2 py-1 rounded text-xs ${

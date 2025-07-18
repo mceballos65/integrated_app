@@ -612,21 +612,14 @@ export default function ConfigurationPage() {
   } = useConfigStore();
   
   // We'll use config values directly instead of getters
-  const adminUserDisabled = config?.security?.admin_user_disabled || false;
-  const debugRequiresAuth = config?.security?.debug_requires_auth || false;
   const { securityWarning } = useAuth();
   const { refreshUsers, users } = useUserManagement();
 
   // Check if we came from a security warning
   const fromSecurityWarning = searchParams.get('from') === 'security';
-  const shouldHighlightSecurity = fromSecurityWarning || !!securityWarning;
-  
-  // Check if there are active users other than admin
-  const hasAlternativeUsers = users.filter(user => user.username !== 'admin' && user.is_active).length > 0;
   
   const [localPredictionUrl, setLocalPredictionUrl] = useState("");
   const [localAccountCode, setLocalAccountCode] = useState("");
-  const [isAdminUserActive, setIsAdminUserActive] = useState(false);
 
   const [localGithubToken, setLocalGithubToken] = useState("");
   const [localGithubUsername, setLocalGithubUsername] = useState("");
@@ -653,9 +646,9 @@ export default function ConfigurationPage() {
 
   // Active panel state for the new sidebar layout
   const [activePanel, setActivePanel] = useState(() => {
-    // If coming from security warning, go to security tab
+    // If coming from security warning, go to users tab instead since security tab no longer exists
     if (fromSecurityWarning) {
-      return "security";
+      return "users";
     }
     // Otherwise, recover from localStorage or use "extension" as default (first setup step)
     return localStorage.getItem('kyndryl_active_panel') || "extension";
@@ -670,17 +663,14 @@ export default function ConfigurationPage() {
   // Debug logging (after activePanel is declared)
   console.log('ConfigurationPage Debug:', {
     users,
-    hasAlternativeUsers,
-    activePanel,
-    adminUserDisabled,
-    debugRequiresAuth
+    activePanel
   });
 
-  // Auto-switch to security panel if coming from security warning
+  // Auto-switch to users panel if coming from security warning (since security panel no longer exists)
   useEffect(() => {
-    if (fromSecurityWarning && activePanel !== "security") {
-      setActivePanel("security");
-      localStorage.setItem('kyndryl_active_panel', "security");
+    if (fromSecurityWarning && activePanel !== "users") {
+      setActivePanel("users");
+      localStorage.setItem('kyndryl_active_panel', "users");
     }
   }, [fromSecurityWarning, activePanel]);
 
@@ -715,18 +705,6 @@ export default function ConfigurationPage() {
 
   // Función personalizada para cambiar el panel activo y guardarlo en localStorage
   const changeActivePanel = async (panel) => {
-    // Refresh users list before validation to ensure we have the latest data
-    await refreshUsers();
-    
-    // Recalculate hasAlternativeUsers with fresh data
-    const currentHasAlternativeUsers = users.filter(user => user.username !== 'admin' && user.is_active).length > 0;
-    
-    // Only apply user validation if trying to leave "users" panel AND there are still security issues
-    if (activePanel === "users" && panel !== "users" && !currentHasAlternativeUsers && !adminUserDisabled) {
-      showStatusMessage('Please create a new user before leaving this section', true);
-      return;
-    }
-    
     console.log(`Switching to panel: ${panel}, reloading config from backend...`);
     setActivePanel(panel);
     localStorage.setItem('kyndryl_active_panel', panel);
@@ -825,10 +803,6 @@ export default function ConfigurationPage() {
 ./app_data/config/data.json
 ./app_data/logs/app_log.log
 ./app_data/logs/predictions.log`;
-      const directDebugRequiresAuth = config?.security?.debug_requires_auth || false;
-      
-      // Actualizar localStorage para mantener consistencia
-      localStorage.setItem('debugRequiresAuth', directDebugRequiresAuth ? 'true' : 'false');
       
       console.log("Setting local values from config directly:", {
         directPredictionUrl,
@@ -886,46 +860,6 @@ export default function ConfigurationPage() {
     // Initialize backend URL with default value "/api"
     setLocalBackendUrl(getBackendUrlForConfig() || "/api");
   }, [configLoaded, config]); // Simplified dependencies
-
-  // Check admin user status and sync with backend config
-  useEffect(() => {
-    async function checkAdminStatus() {
-      try {
-        // Obtener la lista de usuarios para verificar si el admin está activo
-        const users = await userApiService.getUsers();
-        const adminUser = users.find(user => user.username === 'admin');
-        
-        if (adminUser) {
-          setIsAdminUserActive(adminUser.is_active);
-          console.log('Admin user status:', adminUser.is_active ? 'Active' : 'Inactive');
-          
-          // Sync backend config with actual user status if needed
-          if (adminUserDisabled && adminUser.is_active) {
-            // If config says admin should be disabled but user is active, disable the user
-            console.log('Syncing: Disabling admin user to match backend config');
-            await userApiService.toggleUserStatus('admin');
-            setIsAdminUserActive(false);
-          } else if (!adminUserDisabled && !adminUser.is_active) {
-            // If config says admin should be enabled but user is inactive, enable the user
-            console.log('Syncing: Enabling admin user to match backend config');
-            await userApiService.toggleUserStatus('admin');
-            setIsAdminUserActive(true);
-          }
-        } else {
-          console.log('Admin user not found');
-          setIsAdminUserActive(false);
-        }
-      } catch (error) {
-        console.error('Error checking admin status:', error);
-      }
-    }
-    
-    if (configLoaded) {
-      checkAdminStatus();
-      // Also refresh the users list to ensure UI is in sync
-      refreshUsers();
-    }
-  }, [adminUserDisabled, configLoaded, refreshUsers]);
 
   const handleSave = async () => {
     // Check if Account Code is empty
@@ -1257,21 +1191,6 @@ export default function ConfigurationPage() {
               </div>
             </button>
 
-            {/* Admin Security */}
-            <button
-              onClick={() => changeActivePanel("security")}
-              className={`w-full text-left p-3 rounded-lg flex items-center transition-colors ${
-                activePanel === "security" 
-                  ? "bg-kyndryl-orange text-white" 
-                  : "hover:bg-gray-100 text-gray-700"
-              }`}
-            >
-              <div className="flex items-center">
-                <span className="text-lg mr-3">🔒</span>
-                <span className="font-medium">Admin Security</span>
-              </div>
-            </button>
-
             {/* Log Configuration */}
             <button
               onClick={() => changeActivePanel("logs")}
@@ -1406,26 +1325,6 @@ export default function ConfigurationPage() {
             reloadConfig={reloadConfigAfterChange}
             updateConfig={updateConfig}
             refreshUsers={refreshUsers}
-          />}
-
-          {activePanel === "security" && <AdminSecurityPanel 
-            adminUserDisabled={adminUserDisabled}
-            debugRequiresAuth={debugRequiresAuth}
-            isAdminUserActive={isAdminUserActive}
-            setIsAdminUserActive={setIsAdminUserActive}
-            updateConfig={updateConfig}
-            refreshUsers={refreshUsers}
-            showStatusMessage={showStatusMessage}
-            markConfigAsEdited={markConfigAsEdited}
-            reloadConfig={reloadConfigAfterChange}
-            shouldHighlightSecurity={shouldHighlightSecurity}
-            securityWarning={securityWarning}
-            changeActivePanel={changeActivePanel}
-            branchNotFoundError={branchNotFoundError}
-            handleCreateBranch={handleCreateBranch}
-            handleCancelBranchCreation={handleCancelBranchCreation}
-            createBranchLoading={createBranchLoading}
-            gitStatus={gitStatus}
           />}
 
           {activePanel === "logs" && <LogConfigPanel 
@@ -1887,25 +1786,8 @@ function UserManagementPanel({ showStatusMessage, markConfigAsEdited, reloadConf
   );
 }
 
-function AdminSecurityPanel({ 
-  adminUserDisabled, 
-  debugRequiresAuth, 
-  isAdminUserActive, 
-  setIsAdminUserActive, 
-  updateConfig, 
-  refreshUsers, 
-  showStatusMessage, 
-  markConfigAsEdited, 
-  reloadConfig, 
-  shouldHighlightSecurity, 
-  securityWarning,
-  changeActivePanel, // Add this to allow navigation to user management
-  branchNotFoundError,
-  handleCreateBranch,
-  handleCancelBranchCreation,
-  createBranchLoading,
-  gitStatus
-}) {
+// Components Management Panel
+function ComponentsPanel({ showStatusMessage }) {
   // Estado local para manejar el toggle de protección de la página de debug
   const [isDebugProtected, setIsDebugProtected] = useState(debugRequiresAuth);
   
@@ -2002,170 +1884,6 @@ function AdminSecurityPanel({
           </div>
         </div>
       )}
-
-      {/* Admin User Security Setting */}
-      <div className={`flex items-center space-x-2 mb-6 p-3 rounded-lg ${highlightAdminUser ? 'border-2 border-red-500 bg-red-50' : ''}`}>
-        {highlightAdminUser && (
-          <div className="mr-2 text-red-500 text-xl">🚨</div>
-        )}
-        <div className="flex-1">
-          <label className="inline-flex items-center cursor-pointer">
-            <input 
-              type="checkbox" 
-              checked={adminUserDisabled} 
-              onChange={async (e) => {
-                const newConfigValue = e.target.checked; // true = disabled, false = enabled
-                
-                // If trying to disable admin user, check if there are alternative users
-                if (newConfigValue && !hasAlternativeUsers) {
-                  showStatusMessage('Cannot disable admin user: Please create another user first', true);
-                  return;
-                }
-                
-                try {
-                  // First update the backend configuration
-                  await updateConfig({
-                    security: { admin_user_disabled: newConfigValue }
-                  });
-                  
-                  // Then sync the actual user status to match
-                  if (newConfigValue && isAdminUserActive) {
-                    // Config says disable, and user is currently active -> deactivate user
-                    const userApiService = await import("../services/userApi");
-                    await userApiService.default.toggleUserStatus('admin');
-                    refreshUsers();
-                    setIsAdminUserActive(false);
-                  } else if (!newConfigValue && !isAdminUserActive) {
-                    // Config says enable, and user is currently inactive -> activate user
-                    const userApiService = await import("../services/userApi");
-                    await userApiService.default.toggleUserStatus('admin');
-                    refreshUsers();
-                    setIsAdminUserActive(true);
-                  }
-                  
-                  markConfigAsEdited("security");
-                  showStatusMessage(newConfigValue ? '🔒 Default admin user disabled for security' : '⚠️ Warning: Default admin user is now enabled');
-                  
-                  // Reload configuration from backend to ensure UI shows real state
-                  await reloadConfig();
-                } catch (error) {
-                  showStatusMessage(`Error updating admin user configuration: ${error.message}`, true);
-                }
-              }}
-              className="sr-only peer" 
-            />
-            <div className={`relative w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 ${adminUserDisabled ? 'peer-checked:bg-green-600' : 'peer-checked:bg-gray-400'}`}></div>
-            <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-              Disable Default Admin User
-            </span>
-          </label>
-        </div>
-        <button 
-          onClick={async () => {
-            // Check if there are alternative users before disabling admin
-            if (!hasAlternativeUsers) {
-              showStatusMessage('Cannot disable admin user: Please create another user first', true);
-              return;
-            }
-            
-            try {
-              // Update backend configuration first
-              await updateConfig({
-                security: { admin_user_disabled: true }
-              });
-              
-              // Then ensure the user is actually deactivated
-              if (isAdminUserActive) {
-                const userApiService = await import("../services/userApi");
-                await userApiService.default.toggleUserStatus('admin');
-                refreshUsers();
-                setIsAdminUserActive(false);
-              }
-              
-              markConfigAsEdited("security");
-              showStatusMessage("🔒 Security improvement applied: Default admin user has been disabled for security!");
-              
-              // Reload configuration from backend to ensure UI shows real state
-              await reloadConfig();
-            } catch (error) {
-              showStatusMessage(`Error applying security setting: ${error.message}`, true);
-            }
-          }}
-          disabled={adminUserDisabled || !hasAlternativeUsers}
-          className={`px-4 py-2 text-sm text-white font-medium rounded ${(adminUserDisabled || !hasAlternativeUsers) ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
-        >
-          Apply Security Setting
-        </button>
-      </div>
-
-      {/* Debug Page Access Restriction Setting */}
-      <div className={`flex items-center space-x-2 mb-6 p-3 rounded-lg ${highlightDebugAccess ? 'border-2 border-red-500 bg-red-50' : ''}`}>
-        {highlightDebugAccess && (
-          <div className="mr-2 text-red-500 text-xl">🚨</div>
-        )}
-        <div className="flex-1">
-          <label className="inline-flex items-center cursor-pointer">
-            <input 
-              type="checkbox" 
-              checked={isDebugProtected} 
-              onChange={async (e) => {
-                const newValue = e.target.checked;
-                setIsDebugProtected(newValue);
-                
-                try {
-                  // Update backend configuration
-                  await updateConfig({
-                    security: { debug_requires_auth: newValue }
-                  });
-                  
-                  markConfigAsEdited("security");
-                  showStatusMessage(newValue ? '🔒 Debug page access is now restricted to authenticated users' : '⚠️ Warning: Debug page is now publicly accessible');
-                  
-                  // Update localStorage for immediate effect
-                  localStorage.setItem('debugRequiresAuth', newValue ? 'true' : 'false');
-                  
-                  // Reload configuration from backend to ensure UI shows real state
-                  await reloadConfig();
-                } catch (error) {
-                  setIsDebugProtected(!newValue); // Revert on error
-                  showStatusMessage(`Error updating debug access configuration: ${error.message}`, true);
-                }
-              }}
-              className="sr-only peer" 
-            />
-            <div className={`relative w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 ${isDebugProtected ? 'peer-checked:bg-green-600' : 'peer-checked:bg-gray-400'}`}></div>
-            <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-              Restrict Debug Page Access
-            </span>
-          </label>
-        </div>
-        <button 
-          onClick={async () => {
-            try {
-              // Update backend configuration
-              await updateConfig({
-                security: { debug_requires_auth: true }
-              });
-              
-              setIsDebugProtected(true);
-              markConfigAsEdited("security");
-              showStatusMessage("🔒 Security improvement applied: Debug page access is now restricted to authenticated users!");
-              
-              // Update localStorage for immediate effect
-              localStorage.setItem('debugRequiresAuth', 'true');
-              
-              // Reload configuration from backend to ensure UI shows real state
-              await reloadConfig();
-            } catch (error) {
-              showStatusMessage(`Error applying security setting: ${error.message}`, true);
-            }
-          }}
-          disabled={isDebugProtected}
-          className={`px-4 py-2 text-sm text-white font-medium rounded ${isDebugProtected ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
-        >
-          Apply Security Setting
-        </button>
-      </div>
 
       {/* Debug: Force show branch error dialog for testing */}
       {/* Uncomment the next line to test the dialog UI:
