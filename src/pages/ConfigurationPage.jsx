@@ -1482,6 +1482,33 @@ function ExtensionSettingsPanel({ environmentStatus, loadingEnvironmentStatus, s
           Usually, just click "Save & Create Initial Configuration" to proceed.
         </div>
         </p>
+        
+        {/* Quick Action Button */}
+        <div className="mt-4 text-center">
+          <button
+            onClick={handleSaveInitialConfig}
+            disabled={saving}
+            className={`px-6 py-2 rounded-lg font-semibold text-white transition-colors flex items-center justify-center mx-auto ${
+              saving
+                ? 'bg-gray-400 cursor-not-allowed'
+                : hasRequiredVariables
+                ? 'bg-green-600 hover:bg-green-700'
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
+          >
+            {saving ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Creating...
+              </>
+            ) : (
+              <>
+                <span className="text-lg mr-2">🚀</span>
+                Quick Start
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Environment Variables Status */}
