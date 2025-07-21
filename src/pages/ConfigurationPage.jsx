@@ -1479,7 +1479,7 @@ function ExtensionSettingsPanel({ environmentStatus, loadingEnvironmentStatus, s
           Green indicates configured values, red indicates missing required values.
           Yellow are missing yet optional values.
           <div className="mt-4 mb-2 text-xl font-semibold text-blue-900 text-center">
-          Usually, just click "Save & Create Initial Configuration" to proceed.
+          Usually, just click "Quick Start" to proceed.
         </div>
         </p>
         
