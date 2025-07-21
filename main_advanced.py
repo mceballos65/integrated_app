@@ -1093,6 +1093,31 @@ def check_wizard_required():
             "timestamp": datetime.now().isoformat()
         }
 
+@app.get("/api/config/environment-values")
+def get_environment_values():
+    """Get the actual values of environment variables for configuration"""
+    try:
+        env_values = {
+            'account_code': os.getenv('DX_ENV_OU_GSMA_CODE', ''),
+            'git_repo': os.getenv('DX_EXT_CFG_GIT_REPO', ''),
+            'git_user': os.getenv('DX_EXT_CFG_GIT_USER', ''),
+            'git_branch': os.getenv('DX_EXT_CFG_GIT_BRANCH', 'main'),
+            'gui_user': os.getenv('DX_EXT_GUI_USER', '')
+            # Note: Intentionally not exposing sensitive values like tokens and passwords
+        }
+        
+        return {
+            "environment_values": env_values,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "environment_values": {},
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
+
 @app.get("/api/config/environment-status")
 def get_environment_status():
     """Get the status of environment variables for wizard display"""

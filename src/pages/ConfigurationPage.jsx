@@ -631,6 +631,7 @@ export default function ConfigurationPage() {
   // Environment variables status
   const [environmentStatus, setEnvironmentStatus] = useState([]);
   const [loadingEnvironmentStatus, setLoadingEnvironmentStatus] = useState(true);
+  const [environmentValues, setEnvironmentValues] = useState({});
   const [gitStatus, setGitStatus] = useState("");
   const [localBackendUrl, setLocalBackendUrl] = useState("");
   
@@ -701,6 +702,27 @@ export default function ConfigurationPage() {
     };
 
     loadEnvironmentStatus();
+  }, []);
+
+  // Load environment variables values
+  useEffect(() => {
+    const loadEnvironmentValues = async () => {
+      try {
+        const response = await fetch('/api/config/environment-values');
+        if (response.ok) {
+          const data = await response.json();
+          setEnvironmentValues(data.environment_values || {});
+        } else {
+          console.error('Failed to load environment values');
+          setEnvironmentValues({});
+        }
+      } catch (error) {
+        console.error('Error loading environment values:', error);
+        setEnvironmentValues({});
+      }
+    };
+
+    loadEnvironmentValues();
   }, []);
 
   // Función personalizada para cambiar el panel activo y guardarlo en localStorage
@@ -788,6 +810,7 @@ export default function ConfigurationPage() {
   useEffect(() => {
     console.log("Config changed, updating local values:", { configLoaded, config });
     console.log("Full config object:", JSON.stringify(config, null, 2));
+    
     if (configLoaded && config) {
       // Use values directly from config instead of getters
       const directPredictionUrl = config?.app?.prediction_url || "";
@@ -859,7 +882,25 @@ export default function ConfigurationPage() {
     }
     // Initialize backend URL with default value "/api"
     setLocalBackendUrl(getBackendUrlForConfig() || "/api");
-  }, [configLoaded, config]); // Simplified dependencies
+  }, [configLoaded, config]);
+
+  // Effect for handling environment variables in Initial Configuration Wizard
+  useEffect(() => {
+    console.log("Environment values changed:", environmentValues);
+    
+    // Only use environment variables when there's no saved configuration
+    if (configLoaded && !config && environmentValues) {
+      console.log("No saved config found, using environment variables for Initial Configuration Wizard");
+      
+      // Extract account code from environment variables
+      const envAccountCode = environmentValues.account_code || "";
+      
+      if (envAccountCode && !localAccountCode) {
+        console.log("Setting account code from environment variable:", envAccountCode);
+        setLocalAccountCode(envAccountCode);
+      }
+    }
+  }, [configLoaded, config, environmentValues, localAccountCode]); // Simplified dependencies
 
   const handleSave = async () => {
     // Check if Account Code is empty
